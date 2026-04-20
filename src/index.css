@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #ff4b5c;
+  --color-secondary: #6a0dad;
+}
+
+/* optional utilities */
+.gradient-bg {
+  background: linear-gradient(to right, #ff4b5c, #6a0dad);
+}
+
+.gradient-text {
+  background: linear-gradient(to right, #ff4b5c, #6a0dad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
