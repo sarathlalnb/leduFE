@@ -29,15 +29,14 @@ const Requests = () => {
     fetchRequests();
   }, [filters]);
 
-  const handleAction = async (id, status, type) => {
+  const handleAction = async (id, status, type, postponedDate) => {
     try {
       let payload = { status };
 
       if (status === "approved" && type === "postpone") {
-        const newDate = prompt("Enter new date (YYYY-MM-DD HH:mm)");
-        if (!newDate) return;
 
-        payload.newDate = newDate;
+
+        payload.postponedDate = postponedDate;
       }
 
       await handleRequest(id, payload);
@@ -48,7 +47,7 @@ const Requests = () => {
   };
 
   const getStatusIcon = (status) => {
-    switch(status) {
+    switch (status) {
       case "pending":
         return <Clock className="text-amber-500" size={20} />;
       case "approved":
@@ -61,7 +60,7 @@ const Requests = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case "pending":
         return "bg-amber-100 text-amber-700 border border-amber-300";
       case "approved":
@@ -74,7 +73,7 @@ const Requests = () => {
   };
 
   const getTypeColor = (type) => {
-    return type === "postpone" 
+    return type === "postpone"
       ? "bg-blue-100 text-blue-700 border border-blue-300"
       : "bg-red-100 text-red-700 border border-red-300";
   };
@@ -227,7 +226,7 @@ const Requests = () => {
                     <div className="flex gap-3 pt-4 border-t border-slate-200">
                       <button
                         onClick={() =>
-                          handleAction(r._id, "approved", r.type)
+                          handleAction(r._id, "approved", r.type, r.postponedDate)
                         }
                         className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                       >
@@ -248,11 +247,10 @@ const Requests = () => {
                   )}
 
                   {r.status !== "pending" && (
-                    <div className={`p-3 rounded-lg text-center text-sm font-medium ${
-                      r.status === "approved"
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-red-50 text-red-700 border border-red-200"
-                    }`}>
+                    <div className={`p-3 rounded-lg text-center text-sm font-medium ${r.status === "approved"
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : "bg-red-50 text-red-700 border border-red-200"
+                      }`}>
                       {r.status === "approved" ? "✓ Request Approved" : "✗ Request Rejected"}
                     </div>
                   )}
