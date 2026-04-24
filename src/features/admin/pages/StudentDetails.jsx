@@ -103,12 +103,28 @@ const StudentDetails = () => {
   // Handler functions
   const handleAssignTutor = async () => {
     try {
+      // Check if subject already assigned
+      const subjectExists = assignedTutors.some(
+        (t) => t.subject.toLowerCase() === tutorForm.subject.toLowerCase()
+      );
+      
+      if (subjectExists) {
+        alert("This subject is already assigned to a tutor");
+        return;
+      }
+
+      if (!tutorForm.name.trim() || !tutorForm.subject.trim()) {
+        alert("Please enter tutor name and subject");
+        return;
+      }
+
       await assignTutor(id, tutorForm);
       setAssignTutorModal(false);
       setTutorForm({ name: "", subject: "", hourlyRate: "" });
       fetchStudent();
     } catch (err) {
       console.log(err);
+      alert(err?.response?.data?.message || "Error assigning tutor");
     }
   };
 
@@ -167,6 +183,13 @@ const StudentDetails = () => {
       return;
     }
 
+    // Check for duplicate subjects (case-insensitive)
+    const uniqueSubjects = new Set(studentForm.subjects.map(s => s.trim().toLowerCase()));
+    if (uniqueSubjects.size !== studentForm.subjects.filter(s => s.trim()).length) {
+      setEditStudentError("Duplicate subjects found. Each subject must be unique");
+      return;
+    }
+
     try {
       await updateStudent(id, {
         ...studentForm,
@@ -195,7 +218,7 @@ const StudentDetails = () => {
       await deleteStudent(id);
       navigate("/admin/students");
     } catch (err) {
-      console.log(err);
+      alert(err?.response?.data?.message || "Failed to delete student");
     }
   };
 
@@ -432,11 +455,14 @@ const StudentDetails = () => {
                 <div>
                   <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide mb-3">Enrolled Subjects</p>
                   <div className="flex flex-wrap gap-2">
-                    {profile.subjects?.map((sub, i) => (
-                      <span key={i} className="px-4 py-2 bg-gradient-to-r from-red-500/20 to-purple-500/20 text-gray-900 font-semibold rounded-full border border-red-300/30 text-sm">
-                        {sub}
-                      </span>
-                    ))}
+                    {Array.from(new Set((profile.subjects || []).map(s => s.trim().toLowerCase()))).map((subLower, idx) => {
+                      const original = profile.subjects.find(s => s.trim().toLowerCase() === subLower);
+                      return (
+                        <span key={`${original}-${idx}`} className="px-4 py-2 bg-gradient-to-r from-red-500/20 to-purple-500/20 text-gray-900 font-semibold rounded-full border border-red-300/30 text-sm">
+                          {original}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -444,8 +470,8 @@ const StudentDetails = () => {
                 <div>
                   <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide mb-3">Assigned Tutors</p>
                   <div className="space-y-3">
-                    {profile.tutors?.map((t, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-all">
+                    {profile.tutors?.map((t) => (
+                      <div key={t._id || `${t.name}-${t.subject}`} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-all">
                         <div className="w-10 h-10 rounded-full gradient-bg text-white flex items-center justify-center font-bold flex-shrink-0">
                           {t.name?.charAt(0)}
                         </div>
@@ -486,7 +512,7 @@ const StudentDetails = () => {
                   <p className="text-gray-600">Average Score</p>
                   <span className="text-2xl font-bold text-blue-500">
                     {tests && tests.length > 0
-                      ? Math.round((tests.reduce((sum, t) => sum + (t.marks / t.totalMarks), 0) / tests.length) * 100)
+                      ? Math.round((tests.reduce((sum, t) => sum + ((t.marks != null && t.totalMarks != null) ? t.marks / t.totalMarks : 0), 0) / tests.length) * 100)
                       : 0}%
                   </span>
                 </div>
@@ -814,11 +840,21 @@ const StudentDetails = () => {
             onChange={(e) => setStudentForm({ ...studentForm, school: e.target.value })}
           />
           {editStudentErrors.school && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.school}</p>}
-          <Input
-            label="Syllabus"
-            value={studentForm.syllabus}
-            onChange={(e) => setStudentForm({ ...studentForm, syllabus: e.target.value })}
-          />
+          <div>
+            <label className="text-sm font-medium">Syllabus</label>
+            <select
+              value={studentForm.syllabus}
+              onChange={(e) => setStudentForm({ ...studentForm, syllabus: e.target.value })}
+              className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            >
+              <option value="">Select Syllabus</option>
+              <option value="State">State</option>
+              <option value="CBSE">CBSE</option>
+              <option value="ICSC">ICSC</option>
+              <option value="IGCSE">IGCSE</option>
+              <option value="IB">IB</option>
+            </select>
+          </div>
           <Input
             label="Standard"
             value={studentForm.standard}

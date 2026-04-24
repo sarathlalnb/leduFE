@@ -8,6 +8,7 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [subjects, setSubjects] = useState([]);
   const [newSubject, setNewSubject] = useState("");
+  const [subjectError, setSubjectError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -64,6 +65,8 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
     return "";
   };
 
+  
+
   const validateForm = () => {
     const nextErrors = {};
 
@@ -90,10 +93,23 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   const handleAddSubject = () => {
-    if (newSubject.trim() && !subjects.includes(newSubject)) {
-      setSubjects([...subjects, newSubject]);
-      setNewSubject("");
+    setSubjectError("");
+    const trimmedSubject = newSubject.trim();
+    
+    if (!trimmedSubject) {
+      setSubjectError("Please enter a subject name");
+      return;
     }
+
+    const subjectExists = subjects.some(s => s.toLowerCase() === trimmedSubject.toLowerCase());
+    if (subjectExists) {
+      setSubjectError("This subject is already added");
+      return;
+    }
+
+    setSubjects([...subjects, trimmedSubject]);
+    setNewSubject("");
+    setSubjectError("");
   };
 
   const handleRemoveSubject = (subject) => {
@@ -156,6 +172,7 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
       setFieldErrors({});
       setSubjects([]);
       setNewSubject("");
+      setSubjectError("");
 
       onSuccess?.();
       onClose();
@@ -289,14 +306,19 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Syllabus
                 </label>
-                <input
-                  type="text"
+                <select
                   name="syllabus"
                   value={formData.syllabus}
                   onChange={handleChange}
-                  placeholder="e.g., CBSE"
                   className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                />
+                >
+                  <option value="">Select Syllabus</option>
+                  <option value="State">State</option>
+                  <option value="CBSE">CBSE</option>
+                  <option value="ICSC">ICSC</option>
+                  <option value="IGCSE">IGCSE</option>
+                  <option value="IB">IB</option>
+                </select>
               </div>
 
               <div>
@@ -385,10 +407,13 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
               <input
                 type="text"
                 value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
+                onChange={(e) => {
+                  setNewSubject(e.target.value);
+                  setSubjectError("");
+                }}
                 onKeyPress={(e) => e.key === "Enter" && handleAddSubject()}
                 placeholder="Add subject and press Enter"
-                className="flex-1 px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                className={`flex-1 px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${subjectError ? "border-red-400" : "border-slate-200"}`}
               />
               <button
                 type="button"
@@ -399,6 +424,9 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                 Add
               </button>
             </div>
+            {subjectError && (
+              <p className="text-xs text-red-600">{subjectError}</p>
+            )}
 
             {subjects.length > 0 && (
               <div className="flex flex-wrap gap-2">

@@ -5,14 +5,16 @@ import { Calendar, Award, ClipboardCheck, Star, XCircle } from "lucide-react";
 const Tests = () => {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const fetchTests = async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await getStudentTests();
       setTests(res.data || []);
     } catch (error) {
-      console.error("Failed to fetch tests", error);
+      setError(error?.response?.data?.message || "Failed to load tests");
     } finally {
       setLoading(false);
     }
@@ -88,6 +90,11 @@ const Tests = () => {
         {loading ? (
           <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
             <p className="text-slate-500">Loading tests...</p>
+          </div>
+        ) : error ? (
+          <div className="rounded-[2rem] border border-dashed border-red-300 bg-red-50 p-10 text-center shadow-sm">
+            <p className="text-xl font-semibold text-red-900">Error Loading Tests</p>
+            <p className="mt-3 text-sm text-red-700">{error}</p>
           </div>
         ) : tests.length === 0 ? (
           <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600 shadow-sm">

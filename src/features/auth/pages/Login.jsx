@@ -19,16 +19,11 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("first")
-    
-
     try {
       setLoading(true);
       setError("");
 
       const res = await loginUser(form);
-      console.log(res)  
-
       const { token, user } = res;
 
       localStorage.setItem("token", token);
@@ -41,7 +36,6 @@ const Login = () => {
       }
 
     } catch (err) {
-        console.log(err)
       setError(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
@@ -52,8 +46,8 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 sm:p-8">
 
-        <h1 className="text-3xl font-bold text-center gradient-text mb-6">
-          <span style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span>
+        <h1 className="text-3xl font-bold text-center mb-6">
+          <span className="bg-gradient-to-r from-red-500 to-purple-600 bg-clip-text text-transparent" style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span>
         </h1>
 
         <h2 className="text-xl font-semibold text-center mb-1">

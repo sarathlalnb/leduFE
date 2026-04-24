@@ -163,7 +163,7 @@ const StudentSidebar = ({ isOpen, setIsOpen }) => {
         <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200/50 bg-gray-50/50">
           <div className="text-center">
             <p className="text-xs text-gray-500 mb-1">Student Portal v1.0</p>
-            <p className="text-xs text-gray-400"><span style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span> Learning Platform</p>
+            <p className="text-xs"><span className="bg-gradient-to-r from-red-500 to-purple-600 bg-clip-text text-transparent" style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span><span className="text-gray-400"> Learning Platform</span></p>
           </div>
         </div>
       </aside>

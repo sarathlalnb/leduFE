@@ -19,7 +19,7 @@ const Navbar = ({ setIsOpen }) => {
           <Menu size={24} className="text-gray-700" />
         </button>
 
-        <h1 className="font-bold text-2xl gradient-text"><span style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span> Admin</h1>
+        <h1 className="font-bold text-2xl"><span className="bg-gradient-to-r from-red-500 to-purple-600 bg-clip-text text-transparent" style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span> Admin</h1>
       </div>
 
       {/* Right */}

@@ -38,7 +38,7 @@ const Students = () => {
       await deleteStudent(id);
       fetchStudents();
     } catch (err) {
-      console.log(err);
+      alert(err?.response?.data?.message || "Failed to delete student");
     }
   };
 

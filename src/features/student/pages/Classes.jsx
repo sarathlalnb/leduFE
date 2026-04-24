@@ -6,15 +6,17 @@ import { Calendar, BookOpen, Clock, CheckCircle, AlertCircle } from "lucide-reac
 const Classes = () => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const fetchClasses = async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await getStudentClasses();
       setClasses(res.data);
     } catch (err) {
-      console.log(err);
+      setError(err?.response?.data?.message || "Failed to load classes");
     } finally {
       setLoading(false);
     }
@@ -100,12 +102,25 @@ const Classes = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full mb-4">
               <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-slate-400" />
             </div>
-            <h3 className="text-xl md:text-2xl font-semibold text-slate-800 mb-2">
-              No Classes Yet
-            </h3>
-            <p className="text-slate-600 text-sm md:text-base max-w-xs">
-              You don't have any classes scheduled. Check back soon for new classes!
-            </p>
+            {error ? (
+              <>
+                <h3 className="text-xl md:text-2xl font-semibold text-red-800 mb-2">
+                  Error Loading Classes
+                </h3>
+                <p className="text-red-600 text-sm md:text-base max-w-xs">
+                  {error}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl md:text-2xl font-semibold text-slate-800 mb-2">
+                  No Classes Yet
+                </h3>
+                <p className="text-slate-600 text-sm md:text-base max-w-xs">
+                  You don't have any classes scheduled. Check back soon for new classes!
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

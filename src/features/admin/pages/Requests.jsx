@@ -34,15 +34,17 @@ const Requests = () => {
       let payload = { status };
 
       if (status === "approved" && type === "postpone") {
-
-
+        if (!postponedDate) {
+          alert("Please select a postponed date");
+          return;
+        }
         payload.postponedDate = postponedDate;
       }
 
       await handleRequest(id, payload);
       fetchRequests();
     } catch (err) {
-      console.log(err);
+      alert(err?.response?.data?.message || "Failed to handle request");
     }
   };
 
