@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5001:5000"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

@@ -1,1 +1,1 @@
-export const BaseUrl = 'http://187.127.156.44:3000'
+export const BaseUrl = 'https://api.luoeducation.com'
