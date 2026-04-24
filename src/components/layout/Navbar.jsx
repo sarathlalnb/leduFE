@@ -19,18 +19,18 @@ const Navbar = ({ setIsOpen }) => {
           <Menu size={24} className="text-gray-700" />
         </button>
 
-        <h1 className="font-bold text-2xl gradient-text">Ledu. Admin</h1>
+        <h1 className="font-bold text-2xl gradient-text"><span style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span> Admin</h1>
       </div>
 
       {/* Right */}
       <div className="flex items-center gap-4">
-        <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-gray-600 hidden sm:block">
+        {/* <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-gray-600 hidden sm:block">
           <Bell size={20} />
         </button>
         
         <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-gray-600 hidden sm:block">
           <Settings size={20} />
-        </button>
+        </button> */}
 
         <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
           <div className="text-right hidden sm:block">

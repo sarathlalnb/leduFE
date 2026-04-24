@@ -26,7 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         {/* Header with Close Button */}
         <div className="sticky top-0 bg-slate-900 p-6 flex items-center justify-between border-b border-slate-700">
           <div className="text-2xl font-bold">
-            <span className="bg-gradient-to-r from-red-500 to-purple-600 bg-clip-text text-transparent">Ledu.</span>
+            <span className="bg-gradient-to-r from-red-500 to-purple-600 bg-clip-text text-transparent" style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span>
         
           </div>
           <button
@@ -69,7 +69,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className="absolute bottom-6 left-0 right-0 px-6">
           <div className="bg-gradient-to-r from-red-500/20 to-purple-600/20 rounded-lg p-4 text-center">
             <p className="text-xs text-slate-300">Admin Dashboard v1.0</p>
-            <p className="text-xs text-slate-400 mt-1">Ledu. Learning Platform</p>
+            <p className="text-xs text-slate-400 mt-1"><span style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span> Learning Platform</p>
           </div>
         </div>
       </aside>

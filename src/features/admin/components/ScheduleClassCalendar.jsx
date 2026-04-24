@@ -12,6 +12,10 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
   const [customDays, setCustomDays] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   // Day map with all individual days and combinations
@@ -75,6 +79,11 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
       dates = customDays.map(dateStr => new Date(dateStr)).sort((a, b) => a - b);
     }
 
+    dates = dates.filter((d) => {
+      const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return dateOnly >= todayStart;
+    });
+
     // Format dates with time to ISO datetime strings
     const formattedDates = dates.map(d => {
       const dateStr = d.toISOString().split('T')[0];
@@ -85,6 +94,10 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
 
   // Toggle custom day selection
   const toggleCustomDay = (dateStr) => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const dateOnly = new Date(year, month - 1, day);
+    if (dateOnly < todayStart) return;
+
     setCustomDays(prev => {
       if (prev.includes(dateStr)) {
         return prev.filter(d => d !== dateStr);
@@ -96,7 +109,11 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
 
   // Handle calendar navigation
   const previousMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+    const previous = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    const earliestMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    if (previous >= earliestMonth) {
+      setCurrentMonth(previous);
+    }
   };
 
   const nextMonth = () => {
@@ -117,13 +134,20 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
     // Days of month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const dateOnly = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      const isPastDate = dateOnly < todayStart;
       const isSelected = customDays.includes(dateStr);
 
       days.push(
         <button
           key={day}
+          type="button"
           onClick={() => toggleCustomDay(dateStr)}
+          disabled={isPastDate}
           className={`p-2 rounded text-sm font-medium transition-colors ${
+            isPastDate
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              :
             isSelected
               ? "bg-red-500 text-white"
               : "bg-gray-100 text-gray-900 hover:bg-gray-200"
@@ -185,6 +209,7 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              min={minDate}
               className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -209,6 +234,7 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              min={minDate}
               className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -218,6 +244,7 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              min={startDate || minDate}
               className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>

@@ -5,6 +5,7 @@ import { registerStudent } from "../../../services/allAPI";
 const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [subjects, setSubjects] = useState([]);
   const [newSubject, setNewSubject] = useState("");
   const [formData, setFormData] = useState({
@@ -20,11 +21,72 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
     remarks: "",
   });
 
+  const validateField = (name, value, currentFormData = formData) => {
+    const trimmedValue = typeof value === "string" ? value.trim() : value;
+
+    if (
+      [
+        "name",
+        "email",
+        "password",
+        "parentName",
+        "parentPhone",
+        "school",
+        "standard",
+      ].includes(name) &&
+      !trimmedValue
+    ) {
+      return "This field is required";
+    }
+
+    if (name === "email" && trimmedValue) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedValue)) {
+        return "Enter a valid email address";
+      }
+    }
+
+    if (name === "password" && trimmedValue && trimmedValue.length < 6) {
+      return "Password must be at least 6 characters";
+    }
+
+    if (name === "parentPhone" && trimmedValue) {
+      const normalizedPhone = trimmedValue.replace(/\D/g, "");
+      if (!/^\d{10}$/.test(normalizedPhone)) {
+        return "Enter a valid 10-digit phone number";
+      }
+    }
+
+    if (name === "mode" && !["offline", "online", "hybrid"].includes(currentFormData.mode)) {
+      return "Select a valid mode";
+    }
+
+    return "";
+  };
+
+  const validateForm = () => {
+    const nextErrors = {};
+
+    Object.entries(formData).forEach(([name, value]) => {
+      const message = validateField(name, value, formData);
+      if (message) nextErrors[name] = message;
+    });
+
+    return nextErrors;
+  };
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    setFieldErrors((prev) => ({
+      ...prev,
+      [name]: validateField(name, value, { ...formData, [name]: value }),
+    }));
   };
 
   const handleAddSubject = () => {
@@ -38,29 +100,45 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
     setSubjects(subjects.filter((s) => s !== subject));
   };
 
+  const getApiErrorMessage = (errorLike) => {
+    return (
+      errorLike?.response?.data?.message ||
+      errorLike?.data?.message ||
+      errorLike?.message ||
+      "Failed to register student"
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    const validationErrors = validateForm();
+    setFieldErrors(validationErrors);
 
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.password ||
-      !formData.parentName ||
-      !formData.parentPhone ||
-      !formData.school ||
-      !formData.standard
-    ) {
-      setError("Please fill all required fields");
+    if (Object.keys(validationErrors).length > 0) {
+      setError("Please fix the highlighted fields");
       return;
     }
 
     try {
       setLoading(true);
-      await registerStudent({
+      let apiResponse = await registerStudent({
         ...formData,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        parentName: formData.parentName.trim(),
+        parentPhone: formData.parentPhone.replace(/\D/g, ""),
+        school: formData.school.trim(),
+        syllabus: formData.syllabus.trim(),
+        standard: formData.standard.trim(),
+        remarks: formData.remarks.trim(),
         subjects,
       });
+
+   
+        setError(getApiErrorMessage(apiResponse));
+
+      
 
       // Reset form
       setFormData({
@@ -75,14 +153,14 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
         mode: "offline",
         remarks: "",
       });
+      setFieldErrors({});
       setSubjects([]);
       setNewSubject("");
 
       onSuccess?.();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to register student");
-      alert("Failed to add student")
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -127,8 +205,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Enter student name"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.name ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -141,8 +223,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="student@example.com"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.email ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.email && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
+                )}
               </div>
 
               <div>
@@ -155,8 +241,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Set secure password"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.password ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.password && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
+                )}
               </div>
 
               <div>
@@ -169,8 +259,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.school}
                   onChange={handleChange}
                   placeholder="School name"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.school ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.school && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.school}</p>
+                )}
               </div>
 
               <div>
@@ -183,8 +277,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.standard}
                   onChange={handleChange}
                   placeholder="e.g., 10th, 12th"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.standard ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.standard && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.standard}</p>
+                )}
               </div>
 
               <div>
@@ -209,12 +307,16 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   name="mode"
                   value={formData.mode}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.mode ? "border-red-400" : "border-slate-200"
+                    }`}
                 >
-                  <option selected value="offline">Offline</option>
+                  <option value="offline">Offline</option>
                   <option value="online">Online</option>
                   <option value="hybrid">Hybrid</option>
                 </select>
+                {fieldErrors.mode && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.mode}</p>
+                )}
               </div>
 
             </div>
@@ -248,8 +350,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.parentName}
                   onChange={handleChange}
                   placeholder="Parent/Guardian name"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.parentName ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.parentName && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.parentName}</p>
+                )}
               </div>
 
               <div>
@@ -262,8 +368,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.parentPhone}
                   onChange={handleChange}
                   placeholder="10-digit phone number"
-                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.parentPhone ? "border-red-400" : "border-slate-200"
+                    }`}
                 />
+                {fieldErrors.parentPhone && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.parentPhone}</p>
+                )}
               </div>
             </div>
           </div>
@@ -310,6 +420,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             )}
           </div>
+
+           {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-6 border-t border-slate-200">

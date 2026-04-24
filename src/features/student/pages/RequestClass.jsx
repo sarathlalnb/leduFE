@@ -68,6 +68,8 @@ const RequestClass = () => {
   }
 
   const { date, time, day } = formatDate(selectedClass.date);
+  const now = new Date();
+  const minDateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 px-4 py-6 md:px-6 md:py-8">
@@ -219,6 +221,7 @@ const RequestClass = () => {
                       type="datetime-local"
                       value={postponedDate}
                       onChange={(e) => setPostponedDate(e.target.value)}
+                      min={minDateTime}
                       className="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
                   </div>

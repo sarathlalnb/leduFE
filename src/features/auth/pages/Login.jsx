@@ -53,7 +53,7 @@ const Login = () => {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 sm:p-8">
 
         <h1 className="text-3xl font-bold text-center gradient-text mb-6">
-          Ledu.
+          <span style={{fontFamily: "ExpressaSerial-Bold"}}>Ledu.</span>
         </h1>
 
         <h2 className="text-xl font-semibold text-center mb-1">

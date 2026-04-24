@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { createTest } from "../../../services/allAPI";
 
@@ -12,6 +12,32 @@ const AddTestModal = ({ isOpen, onClose, onSuccess, studentId }) => {
     marks: "",
     remarks: "",
   });
+
+  const resetForm = () => {
+    setFormData({
+      subject: "",
+      testDate: "",
+      totalMarks: "",
+      marks: "",
+      remarks: "",
+    });
+    setError("");
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  const today = new Date();
+  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetForm();
+      setLoading(false);
+    }
+  }, [isOpen]);
 
   const handleChange = (e) => {
     setFormData({
@@ -29,29 +55,28 @@ const AddTestModal = ({ isOpen, onClose, onSuccess, studentId }) => {
       return;
     }
 
+    const parsedTotalMarks = parseInt(formData.totalMarks, 10);
+    const parsedObtainedMarks = formData.marks ? parseInt(formData.marks, 10) : 0;
+
+    if (parsedObtainedMarks > parsedTotalMarks) {
+      setError("Obtained marks should be less than or equal to total marks");
+      return;
+    }
+
     setLoading(true);
     try {
       const testData = {
         subject: formData.subject,
         testDate: formData.testDate,
-        totalMarks: parseInt(formData.totalMarks),
-        marks: formData.marks ? parseInt(formData.marks) : 0,
+        totalMarks: parsedTotalMarks,
+        marks: parsedObtainedMarks,
         remarks: formData.remarks,
       };
 
       await createTest(studentId, testData);
 
-      // Reset form
-      setFormData({
-        subject: "",
-        testDate: "",
-        totalMarks: "",
-        marks: "",
-        remarks: "",
-      });
-
       onSuccess();
-      onClose();
+      handleClose();
     } catch (error) {
       setError(error.response?.data?.message || "Failed to create test");
     } finally {
@@ -67,7 +92,7 @@ const AddTestModal = ({ isOpen, onClose, onSuccess, studentId }) => {
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900">Add New Test</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X size={24} />
@@ -105,6 +130,7 @@ const AddTestModal = ({ isOpen, onClose, onSuccess, studentId }) => {
               name="testDate"
               value={formData.testDate}
               onChange={handleChange}
+              min={minDate}
               className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
               required
             />
@@ -138,6 +164,7 @@ const AddTestModal = ({ isOpen, onClose, onSuccess, studentId }) => {
                 onChange={handleChange}
                 placeholder="85"
                 min="0"
+                max={formData.totalMarks || undefined}
                 className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all"
               />
             </div>
@@ -160,7 +187,7 @@ const AddTestModal = ({ isOpen, onClose, onSuccess, studentId }) => {
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel

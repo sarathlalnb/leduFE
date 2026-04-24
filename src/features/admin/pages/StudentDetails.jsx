@@ -35,6 +35,8 @@ const StudentDetails = () => {
   const [studentForm, setStudentForm] = useState({
     name: "", email: "", parentName: "", parentPhone: "", school: "", syllabus: "", standard: "", mode: "", remarks: "", subjects: []
   });
+  const [editStudentErrors, setEditStudentErrors] = useState({});
+  const [editStudentError, setEditStudentError] = useState("");
 
   const fetchStudent = useCallback(async () => {
     try {
@@ -47,6 +49,56 @@ const StudentDetails = () => {
       setLoading(false);
     }
   }, [id]);
+
+  const validateEditStudentField = (name, value) => {
+    const trimmedValue = typeof value === "string" ? value.trim() : value;
+
+    if (["name", "email", "parentName", "parentPhone", "school", "standard", "mode"].includes(name) && !trimmedValue) {
+      return "This field is required";
+    }
+
+    if (name === "email" && trimmedValue) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedValue)) {
+        return "Enter a valid email address";
+      }
+    }
+
+    if (name === "parentPhone" && trimmedValue) {
+      const normalizedPhone = trimmedValue.replace(/\D/g, "");
+      if (!/^\d{10}$/.test(normalizedPhone)) {
+        return "Enter a valid 10-digit phone number";
+      }
+    }
+
+    if (name === "mode" && trimmedValue && !["Online", "Offline", "online", "offline"].includes(trimmedValue)) {
+      return "Select a valid mode";
+    }
+
+    return "";
+  };
+
+  const validateEditStudentForm = () => {
+    const nextErrors = {};
+
+    Object.entries(studentForm).forEach(([name, value]) => {
+      const message = validateEditStudentField(name, value);
+      if (message) {
+        nextErrors[name] = message;
+      }
+    });
+
+    return nextErrors;
+  };
+
+  const getApiErrorMessage = (errorLike) => {
+    return (
+      errorLike?.response?.data?.message ||
+      errorLike?.data?.message ||
+      errorLike?.message ||
+      "Failed to update student"
+    );
+  };
 
   // Handler functions
   const handleAssignTutor = async () => {
@@ -62,22 +114,24 @@ const StudentDetails = () => {
 
   const handleScheduleClass = async () => {
     try {
+      if (!classForm.tutorName || !classForm.subject) {
+        alert("Please select tutor and subject");
+        return;
+      }
+
       if (generatedDates.length === 0) {
         alert("Please generate a schedule first");
         return;
       }
 
       setSchedulingClasses(true);
-      
-      // Create a class for each generated date (dates already include time)
-      for (const dateTimeStr of generatedDates) {
-        await scheduleClass(id, {
-          tutorName: classForm.tutorName,
-          subject: classForm.subject,
-          date: dateTimeStr,
-          duration: classForm.duration
-        });
-      }
+
+      await scheduleClass(id, {
+        tutorName: classForm.tutorName,
+        subject: classForm.subject,
+        date: generatedDates.length === 1 ? generatedDates[0] : generatedDates,
+        duration: classForm.duration,
+      });
       
       setAddClassModal(false);
       setClassForm({ tutorName: "", subject: "", dates: [], duration: 1 });
@@ -85,7 +139,7 @@ const StudentDetails = () => {
       fetchStudent();
     } catch (err) {
       console.log(err);
-      alert("Error scheduling classes");
+      alert(err?.response?.data?.message || "Error scheduling classes");
     } finally {
       setSchedulingClasses(false);
     }
@@ -104,12 +158,35 @@ const StudentDetails = () => {
   };
 
   const handleUpdateStudent = async () => {
+    setEditStudentError("");
+    const validationErrors = validateEditStudentForm();
+    setEditStudentErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setEditStudentError("Please fix the highlighted fields");
+      return;
+    }
+
     try {
-      await updateStudent(id, studentForm);
+      await updateStudent(id, {
+        ...studentForm,
+        name: studentForm.name.trim(),
+        email: studentForm.email.trim(),
+        parentName: studentForm.parentName.trim(),
+        parentPhone: studentForm.parentPhone.replace(/\D/g, ""),
+        school: studentForm.school.trim(),
+        syllabus: studentForm.syllabus.trim(),
+        standard: studentForm.standard.trim(),
+        remarks: studentForm.remarks.trim(),
+        subjects: studentForm.subjects.map((subject) => subject.trim()).filter(Boolean),
+      });
       setEditStudentModal(false);
+      setEditStudentErrors({});
+      setEditStudentError("");
       fetchStudent();
     } catch (err) {
       console.log(err);
+      setEditStudentError(getApiErrorMessage(err));
     }
   };
 
@@ -151,6 +228,18 @@ const StudentDetails = () => {
   }
 
   const { profile, classes, tests } = data;
+  const now = new Date();
+  const minDateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const assignedTutors = profile.tutors || [];
+  const tutorNameOptions = [...new Set(assignedTutors.map((tutor) => tutor.name).filter(Boolean))];
+  const subjectOptions = [
+    ...new Set(
+      assignedTutors
+        .filter((tutor) => !classForm.tutorName || tutor.name === classForm.tutorName)
+        .map((tutor) => tutor.subject)
+        .filter(Boolean)
+    ),
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6 lg:p-8">
@@ -213,7 +302,17 @@ const StudentDetails = () => {
               Assign Tutor
             </button>
             <button
-              onClick={() => setAddClassModal(true)}
+              onClick={() => {
+                const defaultTutorName = tutorNameOptions[0] || "";
+                const defaultSubject =
+                  assignedTutors.find((tutor) => tutor.name === defaultTutorName)?.subject ||
+                  subjectOptions[0] ||
+                  "";
+
+                setClassForm({ tutorName: defaultTutorName, subject: defaultSubject, dates: [], duration: 1 });
+                setGeneratedDates([]);
+                setAddClassModal(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Plus size={16} />
@@ -240,6 +339,8 @@ const StudentDetails = () => {
                   remarks: profile.remarks || "",
                   subjects: profile.subjects || []
                 });
+                setEditStudentErrors({});
+                setEditStudentError("");
                 setEditStudentModal(true);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
@@ -359,53 +460,55 @@ const StudentDetails = () => {
               </div>
             </div>
 
-            {/* Classes */}
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Calendar size={24} className="text-blue-500" />
-                  Classes ({classes?.length || 0})
-                </h2>
-              </div>
+          
 
-              <div className="p-6">
-                {classes && classes.length > 0 ? (
-                  <div className="space-y-3">
-                    {classes.map((c) => (
-                      <div key={c._id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-all">
-                        <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                          <Calendar className="text-blue-600" size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900">{c.tutor?.subject || "Subject"}</p>
-                          <p className="text-sm text-gray-600 mt-1">{new Date(c.date).toLocaleString()}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0 flex items-center gap-2">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${
-                            c.status === "completed"
-                              ? "bg-green-100 text-green-700"
-                              : c.status === "scheduled"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-100 text-gray-700"
-                          }`}>
-                            {c.status}
-                          </span>
-                          <button
-                            onClick={() => openEditClassModal(c)}
-                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                          >
-                            <Edit size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No classes scheduled</p>
-                )}
+
+     
+
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+
+            {/* Stats Card */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-red-500">
+              <h3 className="font-bold text-gray-900 mb-4">Quick Stats</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-600">Total Classes</p>
+                  <span className="text-2xl font-bold text-red-500">{classes?.length || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-600">Tests Given</p>
+                  <span className="text-2xl font-bold text-purple-500">{tests?.length || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-600">Average Score</p>
+                  <span className="text-2xl font-bold text-blue-500">
+                    {tests && tests.length > 0
+                      ? Math.round((tests.reduce((sum, t) => sum + (t.marks / t.totalMarks), 0) / tests.length) * 100)
+                      : 0}%
+                  </span>
+                </div>
               </div>
             </div>
 
+            {/* Status */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg p-6 border border-green-200">
+              <h3 className="font-bold text-gray-900 mb-3">Student Status</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <p className="text-sm text-gray-700">Active Student</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <p className="text-sm text-gray-700">Enrolled</p>
+                </div>
+              </div>
+            </div>
+
+            
             {/* Tests */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
@@ -466,51 +569,52 @@ const StudentDetails = () => {
 
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-
-            {/* Stats Card */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-red-500">
-              <h3 className="font-bold text-gray-900 mb-4">Quick Stats</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-gray-600">Total Classes</p>
-                  <span className="text-2xl font-bold text-red-500">{classes?.length || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-gray-600">Tests Given</p>
-                  <span className="text-2xl font-bold text-purple-500">{tests?.length || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-gray-600">Average Score</p>
-                  <span className="text-2xl font-bold text-blue-500">
-                    {tests && tests.length > 0
-                      ? Math.round((tests.reduce((sum, t) => sum + (t.marks / t.totalMarks), 0) / tests.length) * 100)
-                      : 0}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Status */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg p-6 border border-green-200">
-              <h3 className="font-bold text-gray-900 mb-3">Student Status</h3>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <p className="text-sm text-gray-700">Active Student</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <p className="text-sm text-gray-700">Enrolled</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
         </div>
+       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Calendar size={24} className="text-blue-500" />
+                  Classes ({classes?.length || 0})
+                </h2>
+              </div>
 
+              <div className="p-6">
+                {classes && classes.length > 0 ? (
+                  <div className="space-y-3">
+                    {classes.map((c) => (
+                      <div key={c._id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-all">
+                        <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                          <Calendar className="text-blue-600" size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900">{c.tutor?.subject || "Subject"}</p>
+                          <p className="text-sm text-gray-600 mt-1">{new Date(c.date).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 flex items-center gap-2">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${
+                            c.status === "completed"
+                              ? "bg-green-100 text-green-700"
+                              : c.status === "scheduled"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {c.status}
+                          </span>
+                          <button
+                            onClick={() => openEditClassModal(c)}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No classes scheduled</p>
+                )}
+              </div>
+            </div>
       </div>
 
       {/* Modals */}
@@ -546,20 +650,63 @@ const StudentDetails = () => {
       {/* Add Class Modal */}
       <Modal open={addClassModal} title="Schedule New Class" onClose={() => setAddClassModal(false)}>
         <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
-          <Input
-            label="Tutor Name"
-            value={classForm.tutorName}
-            onChange={(e) => setClassForm({ ...classForm, tutorName: e.target.value })}
-            placeholder="Enter tutor name"
-            disabled={schedulingClasses}
-          />
-          <Input
-            label="Subject"
-            value={classForm.subject}
-            onChange={(e) => setClassForm({ ...classForm, subject: e.target.value })}
-            placeholder="Enter subject"
-            disabled={schedulingClasses}
-          />
+          <div>
+            <label className="text-sm font-medium">Tutor Name</label>
+            <select
+              value={classForm.tutorName}
+              onChange={(e) => {
+                const selectedTutorName = e.target.value;
+                const tutorSubjects = [
+                  ...new Set(
+                    assignedTutors
+                      .filter((tutor) => tutor.name === selectedTutorName)
+                      .map((tutor) => tutor.subject)
+                      .filter(Boolean)
+                  ),
+                ];
+
+                setClassForm({
+                  ...classForm,
+                  tutorName: selectedTutorName,
+                  subject: tutorSubjects.includes(classForm.subject) ? classForm.subject : (tutorSubjects[0] || ""),
+                });
+              }}
+              className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              disabled={schedulingClasses || tutorNameOptions.length === 0}
+            >
+              {tutorNameOptions.length === 0 ? (
+                <option value="">No assigned tutors available</option>
+              ) : (
+                <>
+                  <option value="">Select tutor</option>
+                  {tutorNameOptions.map((tutorName) => (
+                    <option key={tutorName} value={tutorName}>{tutorName}</option>
+                  ))}
+                </>
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Subject</label>
+            <select
+              value={classForm.subject}
+              onChange={(e) => setClassForm({ ...classForm, subject: e.target.value })}
+              className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              disabled={schedulingClasses || subjectOptions.length === 0}
+            >
+              {subjectOptions.length === 0 ? (
+                <option value="">No subjects available</option>
+              ) : (
+                <>
+                  <option value="">Select subject</option>
+                  {subjectOptions.map((subject) => (
+                    <option key={subject} value={subject}>{subject}</option>
+                  ))}
+                </>
+              )}
+            </select>
+          </div>
           <Input
             label="Duration (hours)"
             type="number"
@@ -618,6 +765,7 @@ const StudentDetails = () => {
               type="datetime-local"
               value={editClassForm.newDate}
               onChange={(e) => setEditClassForm({ ...editClassForm, newDate: e.target.value })}
+              min={minDateTime}
             />
           )}
           <div className="flex gap-3 pt-4">
@@ -630,32 +778,42 @@ const StudentDetails = () => {
       {/* Edit Student Modal */}
       <Modal open={editStudentModal} title="Edit Student" onClose={() => setEditStudentModal(false)}>
         <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
+          {editStudentError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {editStudentError}
+            </div>
+          )}
           <Input
             label="Name"
             value={studentForm.name}
             onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
           />
+          {editStudentErrors.name && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.name}</p>}
           <Input
             label="Email"
             type="email"
             value={studentForm.email}
             onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
           />
+          {editStudentErrors.email && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.email}</p>}
           <Input
             label="Parent Name"
             value={studentForm.parentName}
             onChange={(e) => setStudentForm({ ...studentForm, parentName: e.target.value })}
           />
+          {editStudentErrors.parentName && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.parentName}</p>}
           <Input
             label="Parent Phone"
             value={studentForm.parentPhone}
             onChange={(e) => setStudentForm({ ...studentForm, parentPhone: e.target.value })}
           />
+          {editStudentErrors.parentPhone && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.parentPhone}</p>}
           <Input
             label="School"
             value={studentForm.school}
             onChange={(e) => setStudentForm({ ...studentForm, school: e.target.value })}
           />
+          {editStudentErrors.school && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.school}</p>}
           <Input
             label="Syllabus"
             value={studentForm.syllabus}
@@ -666,6 +824,7 @@ const StudentDetails = () => {
             value={studentForm.standard}
             onChange={(e) => setStudentForm({ ...studentForm, standard: e.target.value })}
           />
+          {editStudentErrors.standard && <p className="-mt-2 text-xs text-red-600">{editStudentErrors.standard}</p>}
           <div>
             <label className="text-sm font-medium">Mode</label>
             <select
@@ -676,6 +835,7 @@ const StudentDetails = () => {
               <option value="Online">Online</option>
               <option value="Offline">Offline</option>
             </select>
+            {editStudentErrors.mode && <p className="mt-1 text-xs text-red-600">{editStudentErrors.mode}</p>}
           </div>
           <Input
             label="Remarks"
@@ -687,9 +847,18 @@ const StudentDetails = () => {
             value={studentForm.subjects.join(", ")}
             onChange={(e) => setStudentForm({ ...studentForm, subjects: e.target.value.split(",").map(s => s.trim()) })}
           />
+           {editStudentError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {editStudentError}
+            </div>
+          )}
           <div className="flex gap-3 pt-4">
             <Button onClick={handleUpdateStudent}>Update Student</Button>
-            <Button variant="secondary" onClick={() => setEditStudentModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => {
+              setEditStudentModal(false);
+              setEditStudentErrors({});
+              setEditStudentError("");
+            }}>Cancel</Button>
           </div>
         </div>
       </Modal>
