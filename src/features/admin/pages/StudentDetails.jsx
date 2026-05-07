@@ -107,7 +107,7 @@ const StudentDetails = () => {
       const subjectExists = assignedTutors.some(
         (t) => t.subject.toLowerCase() === tutorForm.subject.toLowerCase()
       );
-      
+
       if (subjectExists) {
         alert("This subject is already assigned to a tutor");
         return;
@@ -148,7 +148,7 @@ const StudentDetails = () => {
         date: generatedDates.length === 1 ? generatedDates[0] : generatedDates,
         duration: classForm.duration,
       });
-      
+
       setAddClassModal(false);
       setClassForm({ tutorName: "", subject: "", dates: [], duration: 1 });
       setGeneratedDates([]);
@@ -184,11 +184,11 @@ const StudentDetails = () => {
     }
 
     // Check for duplicate subjects (case-insensitive)
-    const uniqueSubjects = new Set(studentForm.subjects.map(s => s.trim().toLowerCase()));
-    if (uniqueSubjects.size !== studentForm.subjects.filter(s => s.trim()).length) {
-      setEditStudentError("Duplicate subjects found. Each subject must be unique");
-      return;
-    }
+    // const uniqueSubjects = new Set(studentForm.subjects.map(s => s.trim().toLowerCase()));
+    // if (uniqueSubjects.size !== studentForm.subjects.filter(s => s.trim()).length) {
+    //   setEditStudentError("Duplicate subjects found. Each subject must be unique");
+    //   return;
+    // }
 
     try {
       await updateStudent(id, {
@@ -297,11 +297,10 @@ const StudentDetails = () => {
             </div>
             <div>
               <p className="text-slate-400 text-sm font-medium mb-1">Mode</p>
-              <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                profile.mode === "Online"
+              <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${profile.mode === "Online"
                   ? "bg-blue-100/20 text-blue-300 border border-blue-400/30"
                   : "bg-emerald-100/20 text-emerald-300 border border-emerald-400/30"
-              }`}>
+                }`}>
                 {profile.mode}
               </span>
             </div>
@@ -486,10 +485,10 @@ const StudentDetails = () => {
               </div>
             </div>
 
-          
 
 
-     
+
+
 
           </div>
 
@@ -534,7 +533,7 @@ const StudentDetails = () => {
               </div>
             </div>
 
-            
+
             {/* Tests */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
@@ -550,25 +549,23 @@ const StudentDetails = () => {
                     {tests.map((t) => {
                       const percentage = Math.round((t.marks / t.totalMarks) * 100);
                       const isPass = percentage >= 40;
-                      
+
                       return (
                         <div key={t._id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-all">
-                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            isPass ? "bg-green-500/10" : "bg-red-500/10"
-                          }`}>
+                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${isPass ? "bg-green-500/10" : "bg-red-500/10"
+                            }`}>
                             <Award className={isPass ? "text-green-600" : "text-red-600"} size={20} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-gray-900">{t.subject}</p>
-                            <p className="text-sm text-gray-600 mt-1">{new Date(t.testDate).toLocaleDateString()}</p>
+                            <p className="text-sm text-gray-600 mt-1">{new Date(t.testDate).toLocaleDateString("en-US", { timeZone: "UTC" })}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="font-bold text-lg text-gray-900">{t.marks}/{t.totalMarks}</p>
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 ${
-                              isPass
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 ${isPass
                                 ? "bg-green-100 text-green-700"
                                 : "bg-red-100 text-red-700"
-                            }`}>
+                              }`}>
                               {percentage}%
                             </span>
                             <button
@@ -596,51 +593,50 @@ const StudentDetails = () => {
           </div>
 
         </div>
-       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Calendar size={24} className="text-blue-500" />
-                  Classes ({classes?.length || 0})
-                </h2>
-              </div>
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Calendar size={24} className="text-blue-500" />
+              Classes ({classes?.length || 0})
+            </h2>
+          </div>
 
-              <div className="p-6">
-                {classes && classes.length > 0 ? (
-                  <div className="space-y-3">
-                    {classes.map((c) => (
-                      <div key={c._id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-all">
-                        <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                          <Calendar className="text-blue-600" size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900">{c.tutor?.subject || "Subject"}</p>
-                          <p className="text-sm text-gray-600 mt-1">{new Date(c.date).toLocaleString()}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0 flex items-center gap-2">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${
-                            c.status === "completed"
-                              ? "bg-green-100 text-green-700"
-                              : c.status === "scheduled"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-100 text-gray-700"
-                          }`}>
-                            {c.status}
-                          </span>
-                          <button
-                            onClick={() => openEditClassModal(c)}
-                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                          >
-                            <Edit size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+          <div className="p-6">
+            {classes && classes.length > 0 ? (
+              <div className="space-y-3">
+                {[...classes].sort((a, b) => new Date(a.date) - new Date(b.date)).map((c) => (
+                  <div key={c._id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-all">
+                    <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                      <Calendar className="text-blue-600" size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">{c.tutor?.subject || "Subject"}</p>
+                      <p className="text-sm text-gray-600 mt-1">{new Date(c.date).toLocaleDateString("en-GB", { timeZone: "UTC" })} {new Date(c.date).toLocaleTimeString("en-US", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0 flex items-center gap-2">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${c.status === "completed"
+                          ? "bg-green-100 text-green-700"
+                          : c.status === "scheduled"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}>
+                        {c.status}
+                      </span>
+                      <button
+                        onClick={() => openEditClassModal(c)}
+                        className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No classes scheduled</p>
-                )}
+                ))}
               </div>
-            </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">No classes scheduled</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Modals */}
@@ -653,12 +649,21 @@ const StudentDetails = () => {
             onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
             placeholder="Enter tutor name"
           />
-          <Input
-            label="Subject"
-            value={tutorForm.subject}
-            onChange={(e) => setTutorForm({ ...tutorForm, subject: e.target.value })}
-            placeholder="Enter subject"
-          />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+            <select
+              value={tutorForm.subject}
+              onChange={(e) => setTutorForm({ ...tutorForm, subject: e.target.value })}
+              className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select a subject</option>
+              {profile?.subjects && profile.subjects.map((subject) => (
+                <option key={subject} value={subject}>
+                  {subject}
+                </option>
+              ))}
+            </select>
+          </div>
           <Input
             label="Hourly Rate (optional)"
             type="number"
@@ -743,20 +748,20 @@ const StudentDetails = () => {
           />
 
           {/* Calendar Component */}
-          <ScheduleClassCalendar 
+          <ScheduleClassCalendar
             onDatesSelected={setGeneratedDates}
             selectedDates={generatedDates}
           />
 
           <div className="flex gap-3 pt-4">
-            <Button 
+            <Button
               onClick={handleScheduleClass}
               disabled={schedulingClasses}
             >
               {schedulingClasses ? "Scheduling..." : "Schedule Classes"}
             </Button>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               onClick={() => {
                 setAddClassModal(false);
                 setGeneratedDates([]);
@@ -868,8 +873,9 @@ const StudentDetails = () => {
               onChange={(e) => setStudentForm({ ...studentForm, mode: e.target.value })}
               className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
             >
-              <option value="Online">Online</option>
-              <option value="Offline">Offline</option>
+              <option value="offline">Offline</option>
+              <option value="online">Online</option>
+              <option value="hybrid">Hybrid</option>
             </select>
             {editStudentErrors.mode && <p className="mt-1 text-xs text-red-600">{editStudentErrors.mode}</p>}
           </div>
@@ -883,7 +889,7 @@ const StudentDetails = () => {
             value={studentForm.subjects.join(", ")}
             onChange={(e) => setStudentForm({ ...studentForm, subjects: e.target.value.split(",").map(s => s.trim()) })}
           />
-           {editStudentError && (
+          {editStudentError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {editStudentError}
             </div>
@@ -924,7 +930,7 @@ const StudentDetails = () => {
         <div className="p-6 space-y-4">
           <p className="text-sm text-slate-600">
             Updating marks for <span className="font-semibold">{selectedTest?.subject}</span>
-            {selectedTest ? ` on ${new Date(selectedTest.testDate).toLocaleDateString()}` : ""}
+            {selectedTest ? ` on ${new Date(selectedTest.testDate).toLocaleDateString("en-US", { timeZone: "UTC" })}` : ""}
           </p>
 
           <Input

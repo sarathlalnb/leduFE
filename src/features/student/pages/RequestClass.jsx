@@ -57,9 +57,9 @@ const RequestClass = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      day: date.toLocaleDateString("en-US", { weekday: "long" }),
+      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }),
+      day: date.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
     };
   };
 

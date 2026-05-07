@@ -73,7 +73,7 @@ const Classes = () => {
     const date = new Date(dateString);
     return {
       date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "UTC" }),
       day: date.toLocaleDateString("en-US", { weekday: "long" }),
     };
   };
@@ -127,7 +127,7 @@ const Classes = () => {
 
       {/* Classes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {classes.map((classItem) => {
+        {[...classes].sort((a, b) => new Date(a.date) - new Date(b.date)).map((classItem) => {
           const { date, time, day } = formatDate(classItem.date);
           const status = classItem.status || "scheduled";
 
