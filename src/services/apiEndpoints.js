@@ -13,6 +13,13 @@ export const API_ENDPOINTS = {
       `${BaseUrl}/students/${studentId}/schedule-class`,
     UPDATE_CLASS_STATUS: (classId) =>
       `${BaseUrl}/classes/${classId}/status`,
+    EDIT_CLASS: (classId) =>
+      `${BaseUrl}/classes/${classId}`,
+    DELETE_CLASS: (classId) =>
+      `${BaseUrl}/classes/${classId}`,
+    DELETE_ALL_CLASSES: (studentId) =>
+      `${BaseUrl}/students/${studentId}/classes`,
+    BULK_EDIT_CLASSES: `${BaseUrl}/classes/bulk-edit`,
 
     GET_ALL_STUDENTS: `${BaseUrl}/students`,
     GET_SINGLE_STUDENT: (studentId) =>

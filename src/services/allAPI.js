@@ -42,6 +42,38 @@ export const updateClassStatus = (classId, data) =>
     getAuthHeader()
   );
 
+export const editClass = (classId, data) =>
+  axiosConfig(
+    "patch",
+    API_ENDPOINTS.ADMIN.EDIT_CLASS(classId),
+    data,
+    getAuthHeader()
+  );
+
+export const deleteClass = (classId) =>
+  axiosConfig(
+    "delete",
+    API_ENDPOINTS.ADMIN.DELETE_CLASS(classId),
+    "",
+    getAuthHeader()
+  );
+
+export const deleteAllClasses = (studentId) =>
+  axiosConfig(
+    "delete",
+    API_ENDPOINTS.ADMIN.DELETE_ALL_CLASSES(studentId),
+    "",
+    getAuthHeader()
+  );
+
+export const bulkEditClasses = (data) =>
+  axiosConfig(
+    "patch",
+    API_ENDPOINTS.ADMIN.BULK_EDIT_CLASSES,
+    data,
+    getAuthHeader()
+  );
+
 
 
 export const getAllStudents = (params = {}) =>

@@ -84,10 +84,12 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
       return dateOnly >= todayStart;
     });
 
-    // Format dates with time to ISO datetime strings
+    // Format dates with time — use local date parts to avoid UTC date-shift
     const formattedDates = dates.map(d => {
-      const dateStr = d.toISOString().split('T')[0];
-      return `${dateStr}T${time}`;
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}T${time}:00`;
     });
     onDatesSelected(formattedDates);
   };

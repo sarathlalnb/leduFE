@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getSingleStudent, assignTutor, scheduleClass, updateClassStatus, updateStudent, deleteStudent, updateTestMarks } from "../../../services/allAPI";
+import { getSingleStudent, assignTutor, scheduleClass, updateClassStatus, updateStudent, deleteStudent, updateTestMarks, editClass, deleteClass, deleteAllClasses, bulkEditClasses } from "../../../services/allAPI";
 import { ArrowLeft, Phone, Mail, School, BookOpen, User, Calendar, Award, Plus, Edit, Trash2, UserPlus, BookOpen as BookIcon } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
@@ -19,10 +19,17 @@ const StudentDetails = () => {
   const [assignTutorModal, setAssignTutorModal] = useState(false);
   const [addClassModal, setAddClassModal] = useState(false);
   const [editClassModal, setEditClassModal] = useState(false);
+  const [updateClassStatusModal, setUpdateClassStatusModal] = useState(false);
   const [editStudentModal, setEditStudentModal] = useState(false);
   const [deleteStudentModal, setDeleteStudentModal] = useState(false);
   const [addTestModal, setAddTestModal] = useState(false);
   const [updateMarksModal, setUpdateMarksModal] = useState(false);
+  const [deleteAllClassesModal, setDeleteAllClassesModal] = useState(false);
+  const [bulkEditModal, setBulkEditModal] = useState(false);
+  const [selectedClassIds, setSelectedClassIds] = useState([]);
+  const [bulkEditForm, setBulkEditForm] = useState({ date: "", duration: "", tutorName: "", subject: "" });
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   // Form states
   const [tutorForm, setTutorForm] = useState({ name: "", subject: "", hourlyRate: "" });
@@ -30,7 +37,8 @@ const StudentDetails = () => {
   const [testMarks, setTestMarks] = useState("");
   const [classForm, setClassForm] = useState({ tutorName: "", subject: "", dates: [], duration: 1 });
   const [generatedDates, setGeneratedDates] = useState([]);
-  const [editClassForm, setEditClassForm] = useState({ status: "", newDate: "" });
+  const [editClassForm, setEditClassForm] = useState({ date: "", duration: "", tutorName: "", subject: "" });
+  const [updateClassStatusForm, setUpdateClassStatusForm] = useState({ status: "", newDate: "" });
   const [selectedClass, setSelectedClass] = useState(null);
   const [studentForm, setStudentForm] = useState({
     name: "", email: "", parentName: "", parentPhone: "", school: "", syllabus: "", standard: "", mode: "", remarks: "", subjects: []
@@ -163,13 +171,58 @@ const StudentDetails = () => {
 
   const handleUpdateClassStatus = async () => {
     try {
-      await updateClassStatus(selectedClass._id, editClassForm);
-      setEditClassModal(false);
-      setEditClassForm({ status: "", newDate: "" });
+      await updateClassStatus(selectedClass._id, updateClassStatusForm);
+      setUpdateClassStatusModal(false);
+      setUpdateClassStatusForm({ status: "", newDate: "" });
       setSelectedClass(null);
       fetchStudent();
     } catch (err) {
       console.log(err);
+      alert(err?.response?.data?.message || "Error updating class status");
+    }
+  };
+
+  const handleEditClass = async () => {
+    try {
+      if (!selectedClass) {
+        alert("No class selected");
+        return;
+      }
+
+      const updateData = {};
+
+      // Add date if provided
+      if (editClassForm.date) {
+        updateData.date = new Date(editClassForm.date).toISOString();
+      }
+
+      // Add duration if provided
+      if (editClassForm.duration) {
+        updateData.duration = Number(editClassForm.duration);
+      }
+
+      // Add tutor info if both tutorName and subject are provided
+      if (editClassForm.tutorName && editClassForm.subject) {
+        updateData.tutorName = editClassForm.tutorName;
+        updateData.subject = editClassForm.subject;
+      } else if (editClassForm.tutorName || editClassForm.subject) {
+        alert("Please select both tutor name and subject when changing tutor");
+        return;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        alert("No changes to save");
+        return;
+      }
+
+      await editClass(selectedClass._id, updateData);
+      setEditClassModal(false);
+      setEditClassForm({ date: "", duration: "", tutorName: "", subject: "" });
+      setSelectedClass(null);
+      fetchStudent();
+    } catch (err) {
+      console.log(err);
+      alert(err?.response?.data?.message || "Error updating class");
     }
   };
 
@@ -222,10 +275,101 @@ const StudentDetails = () => {
     }
   };
 
+  const handleDeleteClass = async (classId) => {
+    if (!window.confirm("Are you sure you want to delete this class?")) return;
+    try {
+      await deleteClass(classId);
+      fetchStudent();
+    } catch (err) {
+      console.log(err);
+      alert(err?.response?.data?.message || "Error deleting class");
+    }
+  };
+
+  const handleDeleteAllClasses = async () => {
+    try {
+      setDeleteAllLoading(true);
+      await deleteAllClasses(id);
+      setDeleteAllClassesModal(false);
+      setSelectedClassIds([]);
+      fetchStudent();
+    } catch (err) {
+      console.log(err);
+      alert(err?.response?.data?.message || "Error deleting all classes");
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const handleBulkEdit = async () => {
+    if (selectedClassIds.length === 0) {
+      alert("No classes selected");
+      return;
+    }
+    const updateData = {};
+    if (bulkEditForm.date) updateData.date = new Date(bulkEditForm.date).toISOString();
+    if (bulkEditForm.duration) updateData.duration = Number(bulkEditForm.duration);
+    if (bulkEditForm.tutorName && bulkEditForm.subject) {
+      updateData.tutorName = bulkEditForm.tutorName;
+      updateData.subject = bulkEditForm.subject;
+    } else if (bulkEditForm.tutorName || bulkEditForm.subject) {
+      alert("Please provide both tutor name and subject when changing trainer");
+      return;
+    }
+    if (Object.keys(updateData).length === 0) {
+      alert("No changes to apply");
+      return;
+    }
+    try {
+      setBulkEditLoading(true);
+      await bulkEditClasses({ classIds: selectedClassIds, updateData });
+      setBulkEditModal(false);
+      setSelectedClassIds([]);
+      setBulkEditForm({ date: "", duration: "", tutorName: "", subject: "" });
+      fetchStudent();
+    } catch (err) {
+      console.log(err);
+      alert(err?.response?.data?.message || "Error applying bulk edit");
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
+  const toggleSelectClass = (classId) => {
+    setSelectedClassIds((prev) =>
+      prev.includes(classId) ? prev.filter((cid) => cid !== classId) : [...prev, classId]
+    );
+  };
+
+  const toggleSelectAllClasses = (allIds) => {
+    setSelectedClassIds((prev) =>
+      prev.length === allIds.length ? [] : allIds
+    );
+  };
+
   const openEditClassModal = (classItem) => {
     setSelectedClass(classItem);
-    setEditClassForm({ status: classItem.status, newDate: "" });
+    // Format date for datetime-local input using LOCAL time (not UTC)
+    const dateObj = new Date(classItem.date);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const dd = String(dateObj.getDate()).padStart(2, "0");
+    const hh = String(dateObj.getHours()).padStart(2, "0");
+    const min = String(dateObj.getMinutes()).padStart(2, "0");
+    const localDate = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    setEditClassForm({
+      date: localDate,
+      duration: classItem.duration,
+      tutorName: "",
+      subject: ""
+    });
     setEditClassModal(true);
+  };
+
+  const openUpdateClassStatusModal = (classItem) => {
+    setSelectedClass(classItem);
+    setUpdateClassStatusForm({ status: classItem.status, newDate: "" });
+    setUpdateClassStatusModal(true);
   };
 
   useEffect(() => {
@@ -298,8 +442,8 @@ const StudentDetails = () => {
             <div>
               <p className="text-slate-400 text-sm font-medium mb-1">Mode</p>
               <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${profile.mode === "Online"
-                  ? "bg-blue-100/20 text-blue-300 border border-blue-400/30"
-                  : "bg-emerald-100/20 text-emerald-300 border border-emerald-400/30"
+                ? "bg-blue-100/20 text-blue-300 border border-blue-400/30"
+                : "bg-emerald-100/20 text-emerald-300 border border-emerald-400/30"
                 }`}>
                 {profile.mode}
               </span>
@@ -376,6 +520,14 @@ const StudentDetails = () => {
             >
               <Trash2 size={16} />
               Delete Student
+            </button>
+            <button
+              onClick={() => setDeleteAllClassesModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              disabled={!classes || classes.length === 0}
+            >
+              <Trash2 size={16} />
+              Delete All Classes
             </button>
           </div>
         </div>
@@ -515,6 +667,14 @@ const StudentDetails = () => {
                       : 0}%
                   </span>
                 </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-600">Hours Completed</p>
+                  <span className="text-2xl font-bold text-emerald-600">{profile.totalHours || 0} hrs</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-600">Total Fees</p>
+                  <span className="text-2xl font-bold text-amber-600">₹{profile.totalFees || 0}</span>
+                </div>
               </div>
             </div>
 
@@ -558,13 +718,13 @@ const StudentDetails = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-gray-900">{t.subject}</p>
-                            <p className="text-sm text-gray-600 mt-1">{new Date(t.testDate).toLocaleDateString("en-US", { timeZone: "UTC" })}</p>
+                            <p className="text-sm text-gray-600 mt-1">{new Date(t.testDate).toLocaleDateString("en-US")}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="font-bold text-lg text-gray-900">{t.marks}/{t.totalMarks}</p>
                             <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 ${isPass
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
                               }`}>
                               {percentage}%
                             </span>
@@ -594,39 +754,94 @@ const StudentDetails = () => {
 
         </div>
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Calendar size={24} className="text-blue-500" />
               Classes ({classes?.length || 0})
             </h2>
+            {classes && classes.length > 0 && (
+              <div className="flex items-center gap-2">
+                {selectedClassIds.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setBulkEditForm({ date: "", duration: "", tutorName: "", subject: "" });
+                      setBulkEditModal(true);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Edit size={14} />
+                    Bulk Edit ({selectedClassIds.length})
+                  </button>
+                )}
+                <button
+                  onClick={() => toggleSelectAllClasses(classes.map(c => c._id))}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 transition-colors"
+                >
+                  {selectedClassIds.length === classes.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="p-6">
             {classes && classes.length > 0 ? (
               <div className="space-y-3">
                 {[...classes].sort((a, b) => new Date(a.date) - new Date(b.date)).map((c) => (
-                  <div key={c._id} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-all">
+                  <div
+                    key={c._id}
+                    className={`flex items-start gap-4 p-4 rounded-xl border hover:shadow-md transition-all ${
+                      selectedClassIds.includes(c._id)
+                        ? "bg-blue-50 border-blue-300"
+                        : "bg-slate-50 border-slate-200"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={selectedClassIds.includes(c._id)}
+                      onChange={() => toggleSelectClass(c._id)}
+                      className="mt-1 w-4 h-4 accent-blue-600 cursor-pointer flex-shrink-0"
+                    />
                     <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                       <Calendar className="text-blue-600" size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900">{c.tutor?.subject || "Subject"}</p>
-                      <p className="text-sm text-gray-600 mt-1">{new Date(c.date).toLocaleDateString("en-GB", { timeZone: "UTC" })} {new Date(c.date).toLocaleTimeString("en-US", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</p>
+                      <p className="text-xs text-gray-500">{c.tutor?.name || "—"}</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {new Date(c.date).toLocaleDateString("en-GB")} {new Date(c.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     </div>
                     <div className="text-right flex-shrink-0 flex items-center gap-2">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${c.status === "completed"
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${
+                        c.status === "done" || c.status === "completed"
                           ? "bg-green-100 text-green-700"
                           : c.status === "scheduled"
                             ? "bg-blue-100 text-blue-700"
                             : "bg-gray-100 text-gray-700"
-                        }`}>
+                      }`}>
                         {c.status}
                       </span>
                       <button
                         onClick={() => openEditClassModal(c)}
                         className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                        title="Edit class details"
                       >
                         <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => openUpdateClassStatusModal(c)}
+                        className="p-1 text-gray-500 hover:text-orange-600 transition-colors"
+                        title="Update status"
+                      >
+                        <Calendar size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClass(c._id)}
+                        className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+                        title="Delete class"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
@@ -774,34 +989,149 @@ const StudentDetails = () => {
         </div>
       </Modal>
 
-      {/* Edit Class Status Modal */}
-      <Modal open={editClassModal} title="Update Class Status" onClose={() => setEditClassModal(false)}>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="text-sm font-medium">Status</label>
-            <select
-              value={editClassForm.status}
-              onChange={(e) => setEditClassForm({ ...editClassForm, status: e.target.value })}
-              className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
-            >
-              <option value="">Select status</option>
-              <option value="done">Done</option>
-              <option value="postponed">Postponed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-          {editClassForm.status === "postponed" && (
-            <Input
-              label="New Date & Time"
-              type="datetime-local"
-              value={editClassForm.newDate}
-              onChange={(e) => setEditClassForm({ ...editClassForm, newDate: e.target.value })}
-              min={minDateTime}
-            />
+      {/* Edit Class Modal */}
+      <Modal open={editClassModal} title="Edit Class Details" onClose={() => {
+        setEditClassModal(false);
+        setSelectedClass(null);
+      }}>
+        <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
+          {selectedClass && (
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Subject:</strong> {selectedClass.tutor?.subject}
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Tutor:</strong> {selectedClass.tutor?.name}
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Status:</strong> {selectedClass.status}
+                </p>
+              </div>
+
+              {/* Date & Time Field */}
+              <Input
+                label="Date & Time"
+                type="datetime-local"
+                value={editClassForm.date}
+                onChange={(e) => setEditClassForm({ ...editClassForm, date: e.target.value })}
+                min={minDateTime}
+              />
+
+              {/* Duration Field */}
+              <Input
+                label="Duration (hours)"
+                type="number"
+                value={editClassForm.duration}
+                onChange={(e) => setEditClassForm({ ...editClassForm, duration: e.target.value })}
+                placeholder="e.g., 1, 1.5, 2"
+                step="0.5"
+                min="0.5"
+              />
+
+              {/* Tutor Name Field */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tutor Name (optional)</label>
+                <select
+                  value={editClassForm.tutorName}
+                  onChange={(e) => {
+                    const selectedTutorName = e.target.value;
+                    setEditClassForm({ ...editClassForm, tutorName: selectedTutorName });
+                  }}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Keep current tutor</option>
+                  {tutorNameOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject Field */}
+              {editClassForm.tutorName && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+                  <select
+                    value={editClassForm.subject}
+                    onChange={(e) => setEditClassForm({ ...editClassForm, subject: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select subject</option>
+                    {assignedTutors
+                      .filter((tutor) => tutor.name === editClassForm.tutorName)
+                      .map((tutor) => (
+                        <option key={tutor.subject} value={tutor.subject}>
+                          {tutor.subject}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+            </>
           )}
+
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleEditClass}>Update Class</Button>
+            <Button variant="secondary" onClick={() => {
+              setEditClassModal(false);
+              setSelectedClass(null);
+            }}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Update Class Status Modal */}
+      <Modal open={updateClassStatusModal} title="Update Class Status" onClose={() => {
+        setUpdateClassStatusModal(false);
+        setSelectedClass(null);
+      }}>
+        <div className="p-6 space-y-4">
+          {selectedClass && (
+            <>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-purple-800">
+                  <strong>Subject:</strong> {selectedClass.tutor?.subject}
+                </p>
+                <p className="text-sm text-purple-800">
+                  <strong>Date:</strong> {new Date(selectedClass.date).toLocaleDateString("en-GB")} {new Date(selectedClass.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Status</label>
+                <select
+                  value={updateClassStatusForm.status}
+                  onChange={(e) => setUpdateClassStatusForm({ ...updateClassStatusForm, status: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                >
+                  <option value={selectedClass.status}>{selectedClass.status}</option>
+                  <option value="done">Done</option>
+                  <option value="postponed">Postponed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              {/* New Date for Postponed Classes */}
+              {updateClassStatusForm.status === "postponed" && (
+                <Input
+                  label="New Date & Time"
+                  type="datetime-local"
+                  value={updateClassStatusForm.newDate}
+                  onChange={(e) => setUpdateClassStatusForm({ ...updateClassStatusForm, newDate: e.target.value })}
+                  min={minDateTime}
+                />
+              )}
+            </>
+          )}
+
           <div className="flex gap-3 pt-4">
             <Button onClick={handleUpdateClassStatus}>Update Status</Button>
-            <Button variant="secondary" onClick={() => setEditClassModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => {
+              setUpdateClassStatusModal(false);
+              setSelectedClass(null);
+            }}>Cancel</Button>
           </div>
         </div>
       </Modal>
@@ -918,6 +1248,136 @@ const StudentDetails = () => {
         </div>
       </Modal>
 
+      {/* Delete All Classes Modal */}
+      <Modal open={deleteAllClassesModal} title="Delete All Classes" onClose={() => setDeleteAllClassesModal(false)}>
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <Trash2 className="text-orange-600 flex-shrink-0" size={20} />
+            <p className="text-orange-800 text-sm font-medium">
+              This will permanently delete all <strong>{classes?.length || 0} classes</strong> for this student.
+            </p>
+          </div>
+          <p className="text-gray-600 text-sm mb-6">
+            This action cannot be undone. All scheduled, done, postponed and cancelled classes will be removed.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="danger"
+              onClick={handleDeleteAllClasses}
+              disabled={deleteAllLoading}
+            >
+              {deleteAllLoading ? "Deleting..." : "Delete All Classes"}
+            </Button>
+            <Button variant="secondary" onClick={() => setDeleteAllClassesModal(false)} disabled={deleteAllLoading}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Edit Classes Modal */}
+      <Modal
+        open={bulkEditModal}
+        title={`Bulk Edit ${selectedClassIds.length} Class${selectedClassIds.length !== 1 ? "es" : ""}`}
+        onClose={() => {
+          setBulkEditModal(false);
+          setBulkEditForm({ date: "", duration: "", tutorName: "", subject: "" });
+        }}
+      >
+        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              Only fill the fields you want to change. Empty fields will be left as-is for each selected class.
+            </p>
+          </div>
+
+          {/* Date & Time */}
+          <Input
+            label="New Date & Time (optional)"
+            type="datetime-local"
+            value={bulkEditForm.date}
+            onChange={(e) => setBulkEditForm({ ...bulkEditForm, date: e.target.value })}
+            min={minDateTime}
+          />
+
+          {/* Duration */}
+          <Input
+            label="Duration in hours (optional)"
+            type="number"
+            value={bulkEditForm.duration}
+            onChange={(e) => setBulkEditForm({ ...bulkEditForm, duration: e.target.value })}
+            placeholder="e.g. 1, 1.5, 2"
+            step="0.5"
+            min="0.5"
+          />
+
+          {/* Tutor Name */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Trainer Name (optional)</label>
+            <select
+              value={bulkEditForm.tutorName}
+              onChange={(e) => {
+                const name = e.target.value;
+                const subjects = [
+                  ...new Set(
+                    assignedTutors
+                      .filter((t) => t.name === name)
+                      .map((t) => t.subject)
+                      .filter(Boolean)
+                  ),
+                ];
+                setBulkEditForm({
+                  ...bulkEditForm,
+                  tutorName: name,
+                  subject: subjects[0] || "",
+                });
+              }}
+              className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Keep existing trainer</option>
+              {tutorNameOptions.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Subject (shown only when trainer is selected) */}
+          {bulkEditForm.tutorName && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+              <select
+                value={bulkEditForm.subject}
+                onChange={(e) => setBulkEditForm({ ...bulkEditForm, subject: e.target.value })}
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select subject</option>
+                {assignedTutors
+                  .filter((t) => t.name === bulkEditForm.tutorName)
+                  .map((t) => (
+                    <option key={t.subject} value={t.subject}>{t.subject}</option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button onClick={handleBulkEdit} disabled={bulkEditLoading}>
+              {bulkEditLoading ? "Applying..." : `Apply to ${selectedClassIds.length} Class${selectedClassIds.length !== 1 ? "es" : ""}`}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setBulkEditModal(false);
+                setBulkEditForm({ date: "", duration: "", tutorName: "", subject: "" });
+              }}
+              disabled={bulkEditLoading}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Add Test Modal */}
       <AddTestModal
         isOpen={addTestModal}
@@ -930,7 +1390,7 @@ const StudentDetails = () => {
         <div className="p-6 space-y-4">
           <p className="text-sm text-slate-600">
             Updating marks for <span className="font-semibold">{selectedTest?.subject}</span>
-            {selectedTest ? ` on ${new Date(selectedTest.testDate).toLocaleDateString("en-US", { timeZone: "UTC" })}` : ""}
+            {selectedTest ? ` on ${new Date(selectedTest.testDate).toLocaleDateString("en-US")}` : ""}
           </p>
 
           <Input
