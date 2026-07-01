@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Package } from "lucide-react";
 
-const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
+const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [], packageHours = 0, hoursPerDay = 1 }) => {
   const [scheduleType, setScheduleType] = useState("single"); // single, pattern, custom
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -31,6 +31,50 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
     "weekdays": [1, 2, 3, 4, 5],
     "weekends": [0, 6],
   };
+
+  // Calculate how many class sessions are needed based on package hours
+  const sessionsNeeded = packageHours > 0 && hoursPerDay > 0
+    ? Math.ceil(packageHours / hoursPerDay)
+    : null;
+
+  // Auto-calculate end date when startDate, pattern, and packageHours are known
+  useEffect(() => {
+    if (!sessionsNeeded || !startDate || scheduleType !== "pattern") return;
+
+    let daysToInclude = [];
+    if (patternType === "preset") {
+      daysToInclude = dayMap[pattern] || [];
+    } else {
+      daysToInclude = selectedWeekDays.length > 0 ? selectedWeekDays : [];
+    }
+
+    if (daysToInclude.length === 0) return;
+
+    // Walk forward from startDate, counting matching days until we have sessionsNeeded
+    const current = new Date(startDate);
+    let count = 0;
+    let lastDate = null;
+    let safety = 0;
+
+    while (count < sessionsNeeded && safety < 3000) {
+      const dow = current.getDay();
+      const dateOnly = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+      if (daysToInclude.includes(dow) && dateOnly >= todayStart) {
+        count++;
+        lastDate = new Date(current);
+      }
+      current.setDate(current.getDate() + 1);
+      safety++;
+    }
+
+    if (lastDate) {
+      const yyyy = lastDate.getFullYear();
+      const mm = String(lastDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(lastDate.getDate()).padStart(2, "0");
+      setEndDate(`${yyyy}-${mm}-${dd}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, pattern, patternType, selectedWeekDays, sessionsNeeded, scheduleType]);
 
   // Get all days in current month
   const getDaysInMonth = (date) => {
@@ -91,7 +135,14 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
       const dd = String(d.getDate()).padStart(2, "0");
       return `${yyyy}-${mm}-${dd}T${time}:00`;
     });
-    onDatesSelected(formattedDates);
+    
+    const packageData = {
+      packageStartDate: startDate,
+      packageEndDate: endDate,
+      packagePattern: scheduleType === "pattern" ? (patternType === "preset" ? pattern : "custom-multi") : scheduleType,
+    };
+    
+    onDatesSelected(formattedDates, packageData);
   };
 
   // Toggle custom day selection
@@ -165,6 +216,18 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
 
   return (
     <div className="space-y-4">
+      {/* Package Hours Info Bar */}
+      {sessionsNeeded && (
+        <div className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <Package size={16} className="text-purple-600 flex-shrink-0" />
+          <p className="text-sm text-purple-800">
+            <span className="font-semibold">{sessionsNeeded} sessions</span> needed to complete{" "}
+            <span className="font-semibold">{packageHours}h</span> package
+            {hoursPerDay && hoursPerDay !== 1 ? ` @ ${hoursPerDay}h/session` : ""}
+          </p>
+        </div>
+      )}
+
       {/* Schedule Type Selection */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Schedule Type</label>
@@ -241,7 +304,14 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">End Date</label>
+            <label className="text-sm font-medium flex items-center gap-2">
+              End Date
+              {sessionsNeeded && endDate && (
+                <span className="text-xs font-normal text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                  Auto-calculated
+                </span>
+              )}
+            </label>
             <input
               type="date"
               value={endDate}
@@ -432,9 +502,20 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [] }) => {
       {/* Preview */}
       {selectedDates.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm font-medium text-blue-900 mb-2">
-            Generated Schedule: {selectedDates.length} classes
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-blue-900">
+              Generated Schedule: {selectedDates.length} classes
+            </p>
+            {sessionsNeeded && (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                selectedDates.length >= sessionsNeeded
+                  ? "bg-green-100 text-green-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}>
+                {selectedDates.length}/{sessionsNeeded} sessions
+              </span>
+            )}
+          </div>
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {selectedDates.map((datetime, idx) => {
               const date = new Date(datetime);

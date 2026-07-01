@@ -21,6 +21,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
     standard: "",
     mode: "offline",
     remarks: "",
+    totalHours: "",
+    packageHours: "",
+    hoursPerDay: "",
+    packageStartDate: "",
+    packageEndDate: "",
+    packagePattern: "all-saturdays",
   });
 
   const validateField = (name, value, currentFormData = formData) => {
@@ -61,6 +67,13 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
 
     if (name === "mode" && !["offline", "online", "hybrid"].includes(currentFormData.mode)) {
       return "Select a valid mode";
+    }
+
+    if (name === "totalHours" && trimmedValue !== "") {
+      const numericValue = Number(trimmedValue);
+      if (!Number.isFinite(numericValue) || numericValue < 0) {
+        return "Total hours must be 0 or more";
+      }
     }
 
     return "";
@@ -150,6 +163,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
         standard: formData.standard.trim(),
         remarks: formData.remarks.trim(),
         subjects,
+        totalHours: formData.totalHours === "" ? 0 : Number(formData.totalHours),
+        packageHours: formData.packageHours === "" ? 0 : Number(formData.packageHours),
+        hoursPerDay: formData.hoursPerDay === "" ? 1 : Number(formData.hoursPerDay),
+        packageStartDate: formData.packageStartDate || undefined,
+        packageEndDate: formData.packageEndDate || undefined,
+        packagePattern: formData.packagePattern || undefined,
       });
 
    
@@ -169,6 +188,12 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
         standard: "",
         mode: "offline",
         remarks: "",
+        totalHours: "",
+        packageHours: "",
+        hoursPerDay: "",
+        packageStartDate: "",
+        packageEndDate: "",
+        packagePattern: "all-saturdays",
       });
       setFieldErrors({});
       setSubjects([]);
@@ -355,6 +380,24 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Initial Total Hours
+              </label>
+              <input
+                type="number"
+                name="totalHours"
+                min="0"
+                value={formData.totalHours}
+                onChange={handleChange}
+                placeholder="0"
+                className={`w-full px-4 py-2 border-2 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all ${fieldErrors.totalHours ? "border-red-400" : "border-slate-200"}`}
+              />
+              {fieldErrors.totalHours && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.totalHours}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Remarks
               </label>
               <textarea
@@ -365,6 +408,93 @@ const AddStudentModal = ({ isOpen, onClose, onSuccess }) => {
                 rows="3"
                 className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none"
               />
+            </div>
+          </div>
+
+          {/* Package Details */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xs">📦</div>
+              <h3 className="text-lg font-bold text-gray-900">Package Details</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Package Hours (total)
+                </label>
+                <input
+                  type="number"
+                  name="packageHours"
+                  min="0"
+                  step="0.5"
+                  value={formData.packageHours}
+                  onChange={handleChange}
+                  placeholder="e.g. 40"
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hours Per Session
+                </label>
+                <input
+                  type="number"
+                  name="hoursPerDay"
+                  min="0.5"
+                  step="0.5"
+                  value={formData.hoursPerDay}
+                  onChange={handleChange}
+                  placeholder="e.g. 1.5"
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Package Start Date
+                </label>
+                <input
+                  type="date"
+                  name="packageStartDate"
+                  value={formData.packageStartDate}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Schedule Pattern
+                </label>
+                <select
+                  name="packagePattern"
+                  value={formData.packagePattern}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                >
+                  <option value="all-days">All Days</option>
+                  <option value="all-mondays">All Mondays</option>
+                  <option value="all-tuesdays">All Tuesdays</option>
+                  <option value="all-wednesdays">All Wednesdays</option>
+                  <option value="all-thursdays">All Thursdays</option>
+                  <option value="all-fridays">All Fridays</option>
+                  <option value="all-saturdays">All Saturdays</option>
+                  <option value="all-sundays">All Sundays</option>
+                  <option value="weekdays">All Weekdays (Mon-Fri)</option>
+                  <option value="weekends">All Weekends (Sat-Sun)</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Package End Date
+                  <span className="ml-2 text-xs text-gray-500">(optional — auto-calculated from pattern if left empty)</span>
+                </label>
+                <input
+                  type="date"
+                  name="packageEndDate"
+                  value={formData.packageEndDate}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:border-transparent focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                />
+              </div>
             </div>
           </div>
 

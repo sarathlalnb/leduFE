@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllStudents, deleteStudent } from "../../../services/allAPI";
-import { Search, Eye, Trash2, User, Plus } from "lucide-react";
+import { Search, Eye, Trash2, User, Plus, GraduationCap, ChevronLeft, ChevronRight } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -11,10 +16,14 @@ const Students = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
-  const fetchStudents = async () => {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
+  const [year, setYear] = useState(now.getFullYear());
+
+  const fetchStudents = async (m = month, y = year) => {
     try {
       setLoading(true);
-      const res = await getAllStudents({ search });
+      const res = await getAllStudents({ search, month: m, year: y });
       setStudents(res.data);
     } catch (err) {
       console.log(err);
@@ -25,10 +34,11 @@ const Students = () => {
 
   useEffect(() => {
     const delay = setTimeout(() => {
-      fetchStudents();
+      fetchStudents(month, year);
     }, 400);
 
     return () => clearTimeout(delay);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const handleDelete = async (id) => {
@@ -80,11 +90,55 @@ const Students = () => {
           </button>
         </div>
 
-        {/* Results Count */}
-        <div className="flex items-center justify-between">
+        <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg text-purple-700">
+              <GraduationCap size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Tutor Management</h2>
+              <p className="text-sm text-gray-600">Add new tutors and review the full tutor list from the dedicated Tutors section.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/admin/tutors")}
+            className="px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+          >
+            Manage Tutors
+          </button>
+        </div>
+
+        {/* Results Count & Month Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p className="text-gray-700 font-medium">
             {loading ? "Loading..." : `${students.length} student${students.length !== 1 ? "s" : ""} found`}
           </p>
+          
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+            <button
+              onClick={() => {
+                let m = month - 1; let y = year;
+                if (m < 1) { m = 12; y -= 1; }
+                setMonth(m); setYear(y); fetchStudents(m, y);
+              }}
+              className="rounded-lg p-1 text-slate-600 hover:bg-slate-50 transition"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="min-w-[110px] text-center text-sm font-semibold text-slate-800">
+              {MONTH_NAMES[month - 1]} {year}
+            </span>
+            <button
+              onClick={() => {
+                let m = month + 1; let y = year;
+                if (m > 12) { m = 1; y += 1; }
+                setMonth(m); setYear(y); fetchStudents(m, y);
+              }}
+              className="rounded-lg p-1 text-slate-600 hover:bg-slate-50 transition"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Students Grid - Mobile First */}
@@ -121,12 +175,18 @@ const Students = () => {
                   {/* Student Info Grid */}
                   <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-lg">
                     <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">School</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1">{s.school || "N/A"}</p>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Classes (Total/Month)</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1">{s.stats?.totalClasses || 0} / {s.stats?.classesThisMonth || 0}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Standard</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1">{s.standard || "N/A"}</p>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Hours (Total/Month)</p>
+                      <p className="text-sm font-semibold text-emerald-700 mt-1">
+                        {s.stats?.totalHours || s.totalHours || 0}h{s.packageHours > 0 ? ` (of ${s.packageHours}h)` : ""} / {s.stats?.hoursThisMonth || 0}h
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">School</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1">{s.school || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Mode</p>
@@ -140,13 +200,24 @@ const Students = () => {
                         </span>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Status</p>
-                      <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 mt-1">
-                        Active
-                      </span>
-                    </div>
                   </div>
+
+                  {/* Package progress bar */}
+                  {s.packageHours > 0 && (
+                    <div className="px-1">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Package Progress</span>
+                        <span>{Math.min(100, Math.round(((s.totalHours || 0) / s.packageHours) * 100))}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-blue-500 transition-all"
+                          style={{ width: `${Math.min(100, ((s.totalHours || 0) / s.packageHours) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-2">

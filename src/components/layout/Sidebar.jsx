@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, FileText, X } from "lucide-react";
+import { LayoutDashboard, Users, FileText, GraduationCap, X } from "lucide-react";
 import logo from '../../assets/leduB.png'
 
 const menu = [
   { name: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Students", path: "/admin/students", icon: Users },
+  { name: "Tutors", path: "/admin/tutors", icon: GraduationCap },
   { name: "Requests", path: "/admin/requests", icon: FileText },
 ];
 

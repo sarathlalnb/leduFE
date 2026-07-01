@@ -6,6 +6,8 @@ import Login from "../features/auth/pages/Login";
 import AdminDashboard from "../features/admin/pages/Dashboard";
 import Students from "../features/admin/pages/Students";
 import StudentDetails from "../features/admin/pages/StudentDetails";
+import Tutors from "../features/admin/pages/Tutors";
+import TutorSalaryReport from "../features/admin/pages/TutorSalaryReport";
 import Requests from "../features/admin/pages/Requests";
 
 // Student Pages
@@ -15,9 +17,14 @@ import StudentRequests from "../features/student/pages/Requests";
 import StudentTests from "../features/student/pages/Tests";
 import RequestClass from "../features/student/pages/RequestClass";
 
+// Tutor Pages
+import TutorDashboard from "../features/tutor/pages/Dashboard";
+import TutorClasses from "../features/tutor/pages/Classes";
+
 // Layouts
 import AdminLayout from "../components/layout/AdminLayout";
 import StudentLayout from "../components/layout/StudentLayout";
+import TutorLayout from "../components/layout/TutorLayout";
 
 // Auth Guard
 import ProtectedRoute from "../components/ProtectedRoute.jsx";
@@ -41,6 +48,8 @@ export default function AppRoutes() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="students" element={<Students />} />
           <Route path="students/:id" element={<StudentDetails />} />
+          <Route path="tutors" element={<Tutors />} />
+          <Route path="tutors/salary-report" element={<TutorSalaryReport />} />
           <Route path="requests" element={<Requests />} />
         </Route>
 
@@ -58,6 +67,19 @@ export default function AppRoutes() {
           <Route path="classes/request" element={<RequestClass />} />
           <Route path="requests" element={<StudentRequests />} />
           <Route path="tests" element={<StudentTests />} />
+        </Route>
+
+        {/* Tutor */}
+        <Route
+          path="/tutor"
+          element={
+            <ProtectedRoute role="tutor">
+              <TutorLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<TutorDashboard />} />
+          <Route path="classes" element={<TutorClasses />} />
         </Route>
 
         {/* Fallback */}

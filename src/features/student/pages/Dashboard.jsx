@@ -48,6 +48,7 @@ const Dashboard = () => {
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
           <span>Subjects: {studentProfile.subjects?.join(", ") || "N/A"}</span>
           <span>Total Hours: {studentProfile.totalHours || 0}</span>
+          <span> Fees : ₹{studentProfile.totalStudentFees || studentProfile.totalFees || 0}</span>
          
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getSingleStudent, assignTutor, scheduleClass, updateClassStatus, updateStudent, deleteStudent, updateTestMarks, editClass, deleteClass, deleteAllClasses, bulkEditClasses } from "../../../services/allAPI";
+import { getSingleStudent, assignTutor, updateAssignedTutor, scheduleClass, updateClassStatus, updateStudent, deleteStudent, updateTestMarks, editClass, deleteClass, deleteAllClasses, bulkEditClasses, getAllTutors } from "../../../services/allAPI";
 import { ArrowLeft, Phone, Mail, School, BookOpen, User, Calendar, Award, Plus, Edit, Trash2, UserPlus, BookOpen as BookIcon } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
@@ -17,6 +17,7 @@ const StudentDetails = () => {
 
   // Modal states
   const [assignTutorModal, setAssignTutorModal] = useState(false);
+  const [editTutorModal, setEditTutorModal] = useState(false);
   const [addClassModal, setAddClassModal] = useState(false);
   const [editClassModal, setEditClassModal] = useState(false);
   const [updateClassStatusModal, setUpdateClassStatusModal] = useState(false);
@@ -32,19 +33,27 @@ const StudentDetails = () => {
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   // Form states
-  const [tutorForm, setTutorForm] = useState({ name: "", subject: "", hourlyRate: "" });
+  const [tutorForm, setTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+  const [editTutorForm, setEditTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+  const [assignTutorManualSubject, setAssignTutorManualSubject] = useState(false);
+  const [editTutorManualSubject, setEditTutorManualSubject] = useState(false);
+  const [addClassManualSubject, setAddClassManualSubject] = useState(false);
+  const [editingTutor, setEditingTutor] = useState(null);
   const [selectedTest, setSelectedTest] = useState(null);
   const [testMarks, setTestMarks] = useState("");
-  const [classForm, setClassForm] = useState({ tutorName: "", subject: "", dates: [], duration: 1 });
+  const [classForm, setClassForm] = useState({ tutorName: "", subject: "", dates: [], duration: 1, manualSubject: "", packageHours: "" });
   const [generatedDates, setGeneratedDates] = useState([]);
+  const [generatedPackageData, setGeneratedPackageData] = useState({});
   const [editClassForm, setEditClassForm] = useState({ date: "", duration: "", tutorName: "", subject: "" });
   const [updateClassStatusForm, setUpdateClassStatusForm] = useState({ status: "", newDate: "" });
   const [selectedClass, setSelectedClass] = useState(null);
   const [studentForm, setStudentForm] = useState({
-    name: "", email: "", parentName: "", parentPhone: "", school: "", syllabus: "", standard: "", mode: "", remarks: "", subjects: []
+    name: "", email: "", parentName: "", parentPhone: "", school: "", syllabus: "", standard: "", mode: "", remarks: "", subjects: [],
+    packageHours: "", hoursPerDay: "", packageStartDate: "", packageEndDate: "", packagePattern: "all-saturdays",
   });
   const [editStudentErrors, setEditStudentErrors] = useState({});
   const [editStudentError, setEditStudentError] = useState("");
+  const [registeredTutors, setRegisteredTutors] = useState([]);
 
   const fetchStudent = useCallback(async () => {
     try {
@@ -57,6 +66,15 @@ const StudentDetails = () => {
       setLoading(false);
     }
   }, [id]);
+
+  const fetchTutors = useCallback(async () => {
+    try {
+      const res = await getAllTutors();
+      setRegisteredTutors(res.data || []);
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
 
   const validateEditStudentField = (name, value) => {
     const trimmedValue = typeof value === "string" ? value.trim() : value;
@@ -121,14 +139,22 @@ const StudentDetails = () => {
         return;
       }
 
-      if (!tutorForm.name.trim() || !tutorForm.subject.trim()) {
+      if (!tutorForm.name.trim() || (!tutorForm.subject.trim() && !tutorForm.manualSubject?.trim())) {
         alert("Please enter tutor name and subject");
         return;
       }
 
-      await assignTutor(id, tutorForm);
+      const resolvedSubject = assignTutorManualSubject ? tutorForm.manualSubject.trim() : tutorForm.subject;
+
+      await assignTutor(id, {
+        name: tutorForm.name,
+        subject: resolvedSubject,
+        tutorHourlyRate: Number(tutorForm.tutorHourlyRate) || 0,
+        studentHourlyRate: Number(tutorForm.studentHourlyRate) || 0,
+      });
       setAssignTutorModal(false);
-      setTutorForm({ name: "", subject: "", hourlyRate: "" });
+      setTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+      setAssignTutorManualSubject(false);
       fetchStudent();
     } catch (err) {
       console.log(err);
@@ -136,9 +162,50 @@ const StudentDetails = () => {
     }
   };
 
+  const handleEditAssignedTutor = async () => {
+    try {
+      if (!editingTutor?._id) {
+        alert("No assigned tutor selected");
+        return;
+      }
+
+      if (!editTutorForm.name.trim() || (!editTutorForm.subject.trim() && !editTutorForm.manualSubject?.trim())) {
+        alert("Please enter tutor name and subject");
+        return;
+      }
+
+      const resolvedSubject = editTutorManualSubject ? editTutorForm.manualSubject.trim() : editTutorForm.subject;
+
+      const duplicateSubject = assignedTutors.some(
+        (t) => String(t._id || t.id) !== String(editingTutor?._id) && t.subject?.toLowerCase() === resolvedSubject.toLowerCase()
+      );
+
+      if (duplicateSubject) {
+        alert("This subject is already assigned to another tutor");
+        return;
+      }
+
+      await updateAssignedTutor(id, editingTutor._id, {
+        name: editTutorForm.name,
+        subject: resolvedSubject,
+        tutorHourlyRate: Number(editTutorForm.tutorHourlyRate) || 0,
+        studentHourlyRate: Number(editTutorForm.studentHourlyRate) || 0,
+      });
+
+      setEditTutorModal(false);
+      setEditingTutor(null);
+      setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+      setEditTutorManualSubject(false);
+      fetchStudent();
+    } catch (err) {
+      console.log(err);
+      alert(err?.response?.data?.message || "Error updating assigned tutor");
+    }
+  };
+
   const handleScheduleClass = async () => {
     try {
-      if (!classForm.tutorName || !classForm.subject) {
+      if (!classForm.tutorName || (!classForm.subject && !classForm.manualSubject)) {
         alert("Please select tutor and subject");
         return;
       }
@@ -150,16 +217,24 @@ const StudentDetails = () => {
 
       setSchedulingClasses(true);
 
+      const resolvedSubject = addClassManualSubject ? classForm.manualSubject : classForm.subject;
+
       await scheduleClass(id, {
         tutorName: classForm.tutorName,
-        subject: classForm.subject,
+        subject: resolvedSubject,
         date: generatedDates.length === 1 ? generatedDates[0] : generatedDates,
         duration: classForm.duration,
+        packageHours: classForm.packageHours ? Number(classForm.packageHours) : undefined,
+        packageStartDate: generatedPackageData.packageStartDate,
+        packageEndDate: generatedPackageData.packageEndDate,
+        packagePattern: generatedPackageData.packagePattern,
       });
 
       setAddClassModal(false);
-      setClassForm({ tutorName: "", subject: "", dates: [], duration: 1 });
+      setClassForm({ tutorName: "", subject: "", dates: [], duration: 1, manualSubject: "", packageHours: "" });
       setGeneratedDates([]);
+      setGeneratedPackageData({});
+      setAddClassManualSubject(false);
       fetchStudent();
     } catch (err) {
       console.log(err);
@@ -255,6 +330,11 @@ const StudentDetails = () => {
         standard: studentForm.standard.trim(),
         remarks: studentForm.remarks.trim(),
         subjects: studentForm.subjects.map((subject) => subject.trim()).filter(Boolean),
+        packageHours: studentForm.packageHours === "" ? undefined : Number(studentForm.packageHours),
+        hoursPerDay: studentForm.hoursPerDay === "" ? undefined : Number(studentForm.hoursPerDay),
+        packageStartDate: studentForm.packageStartDate || undefined,
+        packageEndDate: studentForm.packageEndDate || undefined,
+        packagePattern: studentForm.packagePattern || undefined,
       });
       setEditStudentModal(false);
       setEditStudentErrors({});
@@ -372,9 +452,23 @@ const StudentDetails = () => {
     setUpdateClassStatusModal(true);
   };
 
+  const openEditAssignedTutorModal = (tutor) => {
+    setEditingTutor(tutor);
+    setEditTutorManualSubject(false);
+    setEditTutorForm({
+      name: tutor.name || "",
+      subject: tutor.subject || "",
+      tutorHourlyRate: tutor.tutorHourlyRate ?? tutor.hourlyRate ?? "",
+      studentHourlyRate: tutor.studentHourlyRate ?? "",
+      manualSubject: "",
+    });
+    setEditTutorModal(true);
+  };
+
   useEffect(() => {
     fetchStudent();
-  }, [fetchStudent]);
+    fetchTutors();
+  }, [fetchStudent, fetchTutors]);
 
   if (loading) {
     return (
@@ -398,7 +492,9 @@ const StudentDetails = () => {
   const now = new Date();
   const minDateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const assignedTutors = profile.tutors || [];
-  const tutorNameOptions = [...new Set(assignedTutors.map((tutor) => tutor.name).filter(Boolean))];
+  const tutorNameOptions = [
+    ...new Set(assignedTutors.map((tutor) => tutor.name).filter(Boolean)),
+  ];
   const subjectOptions = [
     ...new Set(
       assignedTutors
@@ -449,14 +545,29 @@ const StudentDetails = () => {
               </span>
             </div>
             <div>
-              <p className="text-slate-400 text-sm font-medium mb-1">Subjects</p>
-              <p className="text-xl font-bold">{profile.subjects?.length || 0}</p>
+              <p className="text-slate-400 text-sm font-medium mb-1">Package</p>
+              <p className="text-xl font-bold">{profile.packageHours > 0 ? `${profile.packageHours}h` : "—"}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-sm font-medium mb-1">Classes</p>
-              <p className="text-xl font-bold">{classes?.length || 0}</p>
+              <p className="text-slate-400 text-sm font-medium mb-1">Completed</p>
+              <p className="text-xl font-bold text-emerald-400">{profile.totalHours || 0}h</p>
             </div>
           </div>
+          {/* Package progress bar */}
+          {profile.packageHours > 0 && (
+            <div className="mt-4">
+              <div className="flex justify-between text-xs text-slate-400 mb-1">
+                <span>Package Progress</span>
+                <span>{Math.min(100, Math.round(((profile.totalHours || 0) / profile.packageHours) * 100))}%</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-blue-400 transition-all"
+                  style={{ width: `${Math.min(100, ((profile.totalHours || 0) / profile.packageHours) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 pt-4">
@@ -475,8 +586,10 @@ const StudentDetails = () => {
                   subjectOptions[0] ||
                   "";
 
-                setClassForm({ tutorName: defaultTutorName, subject: defaultSubject, dates: [], duration: 1 });
+                setClassForm({ tutorName: defaultTutorName, subject: defaultSubject, dates: [], duration: 1, manualSubject: "", packageHours: "" });
                 setGeneratedDates([]);
+                setGeneratedPackageData({});
+                setAddClassManualSubject(false);
                 setAddClassModal(true);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -503,7 +616,12 @@ const StudentDetails = () => {
                   standard: profile.standard || "",
                   mode: profile.mode || "",
                   remarks: profile.remarks || "",
-                  subjects: profile.subjects || []
+                  subjects: profile.subjects || [],
+                  packageHours: profile.packageHours || "",
+                  hoursPerDay: profile.hoursPerDay || "",
+                  packageStartDate: profile.packageStartDate ? new Date(profile.packageStartDate).toISOString().split("T")[0] : "",
+                  packageEndDate: profile.packageEndDate ? new Date(profile.packageEndDate).toISOString().split("T")[0] : "",
+                  packagePattern: profile.packagePattern || "all-saturdays",
                 });
                 setEditStudentErrors({});
                 setEditStudentError("");
@@ -629,7 +747,17 @@ const StudentDetails = () => {
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">{t.name}</p>
                           <p className="text-sm text-gray-600">{t.subject}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Tutor ₹{Number(t.tutorHourlyRate ?? t.hourlyRate ?? 0)} / hr • Student ₹{Number(t.studentHourlyRate ?? 0)} / hr
+                          </p>
                         </div>
+                        <button
+                          onClick={() => openEditAssignedTutorModal(t)}
+                          className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
+                          title="Edit assigned tutor"
+                        >
+                          <Edit size={16} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -667,13 +795,40 @@ const StudentDetails = () => {
                       : 0}%
                   </span>
                 </div>
+                {/* Package Hours Progress */}
+                {profile.packageHours > 0 ? (
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-gray-600 text-sm font-medium">Package Hours</p>
+                      <span className="text-sm font-bold text-purple-600">{profile.packageHours}h total</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-gray-500 text-xs">Completed</p>
+                      <span className="text-sm font-semibold text-emerald-600">{profile.totalHours || 0}h / {profile.packageHours}h</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-blue-500 transition-all"
+                        style={{ width: `${Math.min(100, ((profile.totalHours || 0) / profile.packageHours) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 text-right">
+                      {Math.min(100, Math.round(((profile.totalHours || 0) / profile.packageHours) * 100))}% complete
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <p className="text-gray-600">Hours Completed</p>
+                    <span className="text-2xl font-bold text-emerald-600">{profile.totalHours || 0} hrs</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
-                  <p className="text-gray-600">Hours Completed</p>
-                  <span className="text-2xl font-bold text-emerald-600">{profile.totalHours || 0} hrs</span>
+                  <p className="text-gray-600">Tutor Fees</p>
+                  <span className="text-2xl font-bold text-amber-600">₹{profile.totalTutorFees || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <p className="text-gray-600">Total Fees</p>
-                  <span className="text-2xl font-bold text-amber-600">₹{profile.totalFees || 0}</span>
+                  <p className="text-gray-600">Student Fees</p>
+                  <span className="text-2xl font-bold text-amber-600">₹{profile.totalStudentFees || profile.totalFees || 0}</span>
                 </div>
               </div>
             </div>
@@ -858,37 +1013,191 @@ const StudentDetails = () => {
       {/* Assign Tutor Modal */}
       <Modal open={assignTutorModal} title="Assign Tutor" onClose={() => setAssignTutorModal(false)}>
         <div className="p-6 space-y-4">
-          <Input
-            label="Tutor Name"
-            value={tutorForm.name}
-            onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
-            placeholder="Enter tutor name"
-          />
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Tutor Name</label>
             <select
-              value={tutorForm.subject}
-              onChange={(e) => setTutorForm({ ...tutorForm, subject: e.target.value })}
+              value={tutorForm.name}
+              onChange={(e) => {
+                const selectedTutorName = e.target.value;
+                const selectedTutor = registeredTutors.find((tutor) => tutor.name === selectedTutorName);
+                const fallbackSubject =
+                  (selectedTutor?.subjects || []).find((subject) => (profile?.subjects || []).includes(subject)) ||
+                  selectedTutor?.subjects?.[0] ||
+                  "";
+
+                setTutorForm({
+                  ...tutorForm,
+                  name: selectedTutorName,
+                  subject: fallbackSubject,
+                });
+              }}
               className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Select a subject</option>
-              {profile?.subjects && profile.subjects.map((subject) => (
-                <option key={subject} value={subject}>
-                  {subject}
+              <option value="">Select a tutor</option>
+              {registeredTutors.map((tutor) => (
+                <option key={tutor._id || tutor.email} value={tutor.name}>
+                  {tutor.name}
                 </option>
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+            <div className="space-y-2">
+              {!assignTutorManualSubject ? (
+                <>
+                  <select
+                    value={tutorForm.subject}
+                    onChange={(e) => setTutorForm({ ...tutorForm, subject: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={!tutorForm.name}
+                  >
+                    <option value="">Select a subject</option>
+                    {Array.from(new Set([...(registeredTutors.find((tutor) => tutor.name === tutorForm.name)?.subjects || []), ...(profile?.subjects || [])])).map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setAssignTutorManualSubject(true)} className="text-xs text-blue-600 hover:underline">
+                    + Type subject manually
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={tutorForm.manualSubject || ""}
+                    onChange={(e) => setTutorForm({ ...tutorForm, manualSubject: e.target.value })}
+                    placeholder="Enter subject name"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button type="button" onClick={() => { setAssignTutorManualSubject(false); setTutorForm({ ...tutorForm, manualSubject: "" }); }} className="text-xs text-gray-500 hover:underline">
+                    ← Back to dropdown
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
           <Input
-            label="Hourly Rate (optional)"
+            label="Tutor Rate / Hour"
             type="number"
-            value={tutorForm.hourlyRate}
-            onChange={(e) => setTutorForm({ ...tutorForm, hourlyRate: e.target.value })}
-            placeholder="Enter hourly rate"
+            value={tutorForm.tutorHourlyRate}
+            onChange={(e) => setTutorForm({ ...tutorForm, tutorHourlyRate: e.target.value })}
+            placeholder="Enter tutor hourly rate"
+          />
+          <Input
+            label="Student Rate / Hour"
+            type="number"
+            value={tutorForm.studentHourlyRate}
+            onChange={(e) => setTutorForm({ ...tutorForm, studentHourlyRate: e.target.value })}
+            placeholder="Enter student hourly rate"
           />
           <div className="flex gap-3 pt-4">
             <Button onClick={handleAssignTutor}>Assign Tutor</Button>
             <Button variant="secondary" onClick={() => setAssignTutorModal(false)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Assigned Tutor Modal */}
+      <Modal
+        open={editTutorModal}
+        title="Edit Assigned Tutor"
+        onClose={() => {
+          setEditTutorModal(false);
+          setEditingTutor(null);
+          setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "" });
+        }}
+      >
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Tutor Name</label>
+            <select
+              value={editTutorForm.name}
+              onChange={(e) => {
+                const selectedTutorName = e.target.value;
+                const selectedTutor = registeredTutors.find((tutor) => tutor.name === selectedTutorName);
+                const fallbackSubject =
+                  (selectedTutor?.subjects || []).find((subject) => (profile?.subjects || []).includes(subject)) ||
+                  selectedTutor?.subjects?.[0] ||
+                  "";
+
+                setEditTutorForm({
+                  ...editTutorForm,
+                  name: selectedTutorName,
+                  subject: fallbackSubject,
+                });
+              }}
+              className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select a tutor</option>
+              {registeredTutors.map((tutor) => (
+                <option key={tutor._id || tutor.email} value={tutor.name}>
+                  {tutor.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+            <div className="space-y-2">
+              {!editTutorManualSubject ? (
+                <>
+                  <select
+                    value={editTutorForm.subject}
+                    onChange={(e) => setEditTutorForm({ ...editTutorForm, subject: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={!editTutorForm.name}
+                  >
+                    <option value="">Select a subject</option>
+                    {Array.from(new Set([...(registeredTutors.find((tutor) => tutor.name === editTutorForm.name)?.subjects || []), ...(profile?.subjects || [])])).map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setEditTutorManualSubject(true)} className="text-xs text-blue-600 hover:underline">
+                    + Type subject manually
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={editTutorForm.manualSubject || ""}
+                    onChange={(e) => setEditTutorForm({ ...editTutorForm, manualSubject: e.target.value })}
+                    placeholder="Enter subject name"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button type="button" onClick={() => { setEditTutorManualSubject(false); setEditTutorForm({ ...editTutorForm, manualSubject: "" }); }} className="text-xs text-gray-500 hover:underline">
+                    ← Back to dropdown
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          <Input
+            label="Tutor Rate / Hour"
+            type="number"
+            value={editTutorForm.tutorHourlyRate}
+            onChange={(e) => setEditTutorForm({ ...editTutorForm, tutorHourlyRate: e.target.value })}
+            placeholder="Enter tutor hourly rate"
+          />
+          <Input
+            label="Student Rate / Hour"
+            type="number"
+            value={editTutorForm.studentHourlyRate}
+            onChange={(e) => setEditTutorForm({ ...editTutorForm, studentHourlyRate: e.target.value })}
+            placeholder="Enter student hourly rate"
+          />
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleEditAssignedTutor}>Save Changes</Button>
+            <Button variant="secondary" onClick={() => {
+              setEditTutorModal(false);
+              setEditingTutor(null);
+              setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "" });
+            }}>Cancel</Button>
           </div>
         </div>
       </Modal>
@@ -935,37 +1244,77 @@ const StudentDetails = () => {
 
           <div>
             <label className="text-sm font-medium">Subject</label>
-            <select
-              value={classForm.subject}
-              onChange={(e) => setClassForm({ ...classForm, subject: e.target.value })}
-              className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
-              disabled={schedulingClasses || subjectOptions.length === 0}
-            >
-              {subjectOptions.length === 0 ? (
-                <option value="">No subjects available</option>
+            <div className="space-y-2 mt-1">
+              {!addClassManualSubject ? (
+                <>
+                  <select
+                    value={classForm.subject}
+                    onChange={(e) => setClassForm({ ...classForm, subject: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                    disabled={schedulingClasses || subjectOptions.length === 0}
+                  >
+                    {subjectOptions.length === 0 ? (
+                      <option value="">No subjects available</option>
+                    ) : (
+                      <>
+                        <option value="">Select subject</option>
+                        {subjectOptions.map((subject) => (
+                          <option key={subject} value={subject}>{subject}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  <button type="button" onClick={() => setAddClassManualSubject(true)} className="text-xs text-blue-600 hover:underline">
+                    + Type subject manually
+                  </button>
+                </>
               ) : (
                 <>
-                  <option value="">Select subject</option>
-                  {subjectOptions.map((subject) => (
-                    <option key={subject} value={subject}>{subject}</option>
-                  ))}
+                  <input
+                    type="text"
+                    value={classForm.manualSubject || ""}
+                    onChange={(e) => setClassForm({ ...classForm, manualSubject: e.target.value })}
+                    placeholder="Enter subject name"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                    disabled={schedulingClasses}
+                  />
+                  <button type="button" onClick={() => { setAddClassManualSubject(false); setClassForm({ ...classForm, manualSubject: "" }); }} className="text-xs text-gray-500 hover:underline">
+                    ← Back to dropdown
+                  </button>
                 </>
               )}
-            </select>
+            </div>
           </div>
-          <Input
-            label="Duration (hours)"
-            type="number"
-            value={classForm.duration}
-            onChange={(e) => setClassForm({ ...classForm, duration: e.target.value })}
-            min="1"
-            disabled={schedulingClasses}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Package Total Hours (optional)"
+              type="number"
+              value={classForm.packageHours}
+              onChange={(e) => setClassForm({ ...classForm, packageHours: e.target.value })}
+              placeholder="e.g. 40"
+              min="0"
+              disabled={schedulingClasses}
+            />
+            <Input
+              label="Hours Per Session"
+              type="number"
+              value={classForm.duration}
+              onChange={(e) => setClassForm({ ...classForm, duration: e.target.value })}
+              min="0.5"
+              step="0.5"
+              disabled={schedulingClasses}
+            />
+          </div>
 
           {/* Calendar Component */}
           <ScheduleClassCalendar
-            onDatesSelected={setGeneratedDates}
+            onDatesSelected={(dates, pkgData) => {
+              setGeneratedDates(dates);
+              if (pkgData) setGeneratedPackageData(pkgData);
+            }}
             selectedDates={generatedDates}
+            packageHours={classForm.packageHours ? Number(classForm.packageHours) : 0}
+            hoursPerDay={classForm.duration ? Number(classForm.duration) : 1}
           />
 
           <div className="flex gap-3 pt-4">
@@ -1219,6 +1568,72 @@ const StudentDetails = () => {
             value={studentForm.subjects.join(", ")}
             onChange={(e) => setStudentForm({ ...studentForm, subjects: e.target.value.split(",").map(s => s.trim()) })}
           />
+
+          {/* Package Details in Edit Modal */}
+          <div className="pt-2 border-t border-slate-100">
+            <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1">
+              <span>📦</span> Package Details
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Package Hours (total)"
+                type="number"
+                min="0"
+                step="0.5"
+                value={studentForm.packageHours}
+                onChange={(e) => setStudentForm({ ...studentForm, packageHours: e.target.value })}
+                placeholder="e.g. 40"
+              />
+              <Input
+                label="Hours Per Session"
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={studentForm.hoursPerDay}
+                onChange={(e) => setStudentForm({ ...studentForm, hoursPerDay: e.target.value })}
+                placeholder="e.g. 1.5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="text-sm font-medium">Package Start Date</label>
+                <input
+                  type="date"
+                  value={studentForm.packageStartDate}
+                  onChange={(e) => setStudentForm({ ...studentForm, packageStartDate: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Package End Date</label>
+                <input
+                  type="date"
+                  value={studentForm.packageEndDate}
+                  onChange={(e) => setStudentForm({ ...studentForm, packageEndDate: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="text-sm font-medium">Schedule Pattern</label>
+              <select
+                value={studentForm.packagePattern}
+                onChange={(e) => setStudentForm({ ...studentForm, packagePattern: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              >
+                <option value="all-days">All Days</option>
+                <option value="all-mondays">All Mondays</option>
+                <option value="all-tuesdays">All Tuesdays</option>
+                <option value="all-wednesdays">All Wednesdays</option>
+                <option value="all-thursdays">All Thursdays</option>
+                <option value="all-fridays">All Fridays</option>
+                <option value="all-saturdays">All Saturdays</option>
+                <option value="all-sundays">All Sundays</option>
+                <option value="weekdays">All Weekdays (Mon-Fri)</option>
+                <option value="weekends">All Weekends (Sat-Sun)</option>
+              </select>
+            </div>
+          </div>
           {editStudentError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {editStudentError}

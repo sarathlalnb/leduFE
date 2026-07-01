@@ -18,10 +18,51 @@ export const registerStudent = (data) =>
     getAuthHeader()
   );
 
+export const registerTutor = (data) =>
+  axiosConfig(
+    "post",
+    API_ENDPOINTS.ADMIN.REGISTER_TUTOR,
+    data,
+    getAuthHeader()
+  );
+
+export const getAllTutors = (params = {}) =>
+  axiosConfig(
+    "get",
+    API_ENDPOINTS.ADMIN.GET_TUTORS,
+    "",
+    getAuthHeader(),
+    params
+  );
+
+export const updateTutor = (tutorId, data) =>
+  axiosConfig(
+    "put",
+    API_ENDPOINTS.ADMIN.UPDATE_TUTOR(tutorId),
+    data,
+    getAuthHeader()
+  );
+
+export const deleteTutor = (tutorId) =>
+  axiosConfig(
+    "delete",
+    API_ENDPOINTS.ADMIN.DELETE_TUTOR(tutorId),
+    "",
+    getAuthHeader()
+  );
+
 export const assignTutor = (studentId, data) =>
   axiosConfig(
     "post",
     API_ENDPOINTS.ADMIN.ASSIGN_TUTOR(studentId),
+    data,
+    getAuthHeader()
+  );
+
+export const updateAssignedTutor = (studentId, tutorId, data) =>
+  axiosConfig(
+    "put",
+    API_ENDPOINTS.ADMIN.UPDATE_ASSIGNED_TUTOR(studentId, tutorId),
     data,
     getAuthHeader()
   );
@@ -193,5 +234,30 @@ export const getStudentTests = () =>
     "get",
     API_ENDPOINTS.STUDENT.TESTS,
     "",
+    getAuthHeader()
+  );
+
+export const getTutorDashboard = () =>
+  axiosConfig(
+    "get",
+    `${API_ENDPOINTS.ADMIN.DASHBOARD.replace("/dashboard", "")}/tutor-dashboard`,
+    "",
+    getAuthHeader()
+  );
+
+export const getTutorSalaryReport = (tutorName, params = {}) =>
+  axiosConfig(
+    "get",
+    API_ENDPOINTS.ADMIN.TUTOR_SALARY_REPORT(tutorName),
+    "",
+    getAuthHeader(),
+    params
+  );
+
+export const createTutorRequest = (data) =>
+  axiosConfig(
+    "post",
+    API_ENDPOINTS.TUTOR.TUTOR_REQUEST,
+    data,
     getAuthHeader()
   );
