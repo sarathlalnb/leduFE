@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerTutor, getAllTutors, updateTutor, deleteTutor } from "../../../services/allAPI";
-import { ArrowLeft, GraduationCap, Plus, User, Mail, BookOpen, Pencil, Trash2, Search, BarChart2, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, GraduationCap, Plus, User, Mail, BookOpen, Pencil, Trash2, Search, BarChart2, Eye, EyeOff, ChevronLeft, ChevronRight, KeyRound } from "lucide-react";
+import ResetPasswordModal from "../components/ResetPasswordModal";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -18,6 +19,7 @@ const Tutors = () => {
   const [editForm, setEditForm] = useState({ name: "", email: "", subjects: "" });
   const [search, setSearch] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [resetModalData, setResetModalData] = useState({ isOpen: false, userId: null, userName: "" });
   
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
@@ -254,6 +256,13 @@ const Tutors = () => {
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <button
+                                  onClick={() => setResetModalData({ isOpen: true, userId: tutor._id, userName: tutor.name })}
+                                  className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-indigo-600"
+                                  title="Reset password"
+                                >
+                                  <KeyRound size={16} />
+                                </button>
+                                <button
                                   onClick={() => navigate("/admin/tutors/salary-report", { state: { tutor } })}
                                   className="rounded-lg border border-purple-200 bg-purple-50 p-2 text-purple-600 transition hover:bg-purple-100"
                                   title="View salary report"
@@ -283,6 +292,12 @@ const Tutors = () => {
           </div>
         </div>
       </div>
+      <ResetPasswordModal
+        isOpen={resetModalData.isOpen}
+        onClose={() => setResetModalData({ isOpen: false, userId: null, userName: "" })}
+        userId={resetModalData.userId}
+        userName={resetModalData.userName}
+      />
     </div>
   );
 };

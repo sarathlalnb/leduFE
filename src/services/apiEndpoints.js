@@ -46,6 +46,9 @@ export const API_ENDPOINTS = {
       `${BaseUrl}/students/${studentId}/tests`,
     UPDATE_TEST_MARKS: (testId) =>
       `${BaseUrl}/tests/${testId}/marks`,
+
+    RESET_PASSWORD: (userId) =>
+      `${BaseUrl}/users/${userId}/reset-password`,
   },
 
   STUDENT: {

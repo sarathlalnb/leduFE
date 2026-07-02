@@ -261,3 +261,11 @@ export const createTutorRequest = (data) =>
     data,
     getAuthHeader()
   );
+
+export const resetUserPassword = (userId, data) =>
+  axiosConfig(
+    "put",
+    API_ENDPOINTS.ADMIN.RESET_PASSWORD(userId),
+    data,
+    getAuthHeader()
+  );

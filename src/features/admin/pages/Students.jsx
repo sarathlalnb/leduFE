@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllStudents, deleteStudent } from "../../../services/allAPI";
-import { Search, Eye, Trash2, User, Plus, GraduationCap, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Eye, Trash2, User, Plus, GraduationCap, ChevronLeft, ChevronRight, KeyRound } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
+import ResetPasswordModal from "../components/ResetPasswordModal";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -14,6 +15,7 @@ const Students = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [resetModalData, setResetModalData] = useState({ isOpen: false, userId: null, userName: "" });
   const navigate = useNavigate();
 
   const now = new Date();
@@ -222,6 +224,13 @@ const Students = () => {
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-2">
                     <button
+                      onClick={() => setResetModalData({ isOpen: true, userId: s.student._id, userName: s.student.name })}
+                      className="flex-1 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-lg font-medium transition-colors"
+                      title="Reset Password"
+                    >
+                      <KeyRound size={18} />
+                    </button>
+                    <button
                       onClick={() => navigate(`/admin/students/${s.student._id}`)}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                     >
@@ -258,6 +267,13 @@ const Students = () => {
           setSearch("");
           fetchStudents();
         }}
+      />
+
+      <ResetPasswordModal
+        isOpen={resetModalData.isOpen}
+        onClose={() => setResetModalData({ isOpen: false, userId: null, userName: "" })}
+        userId={resetModalData.userId}
+        userName={resetModalData.userName}
       />
     </div>
   );

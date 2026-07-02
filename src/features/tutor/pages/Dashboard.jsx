@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   CalendarClock,
   Send,
+  Search,
 } from "lucide-react";
 
 /* ─── tiny modal backdrop wrapper ─── */
@@ -105,6 +106,7 @@ const TutorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [studentSearch, setStudentSearch] = useState("");
 
   /* ── cancel confirmation state ── */
   const [cancelTarget, setCancelTarget] = useState(null); // class object
@@ -209,6 +211,19 @@ const TutorDashboard = () => {
     totalSalary: 0,
   };
   const students = data.assignedStudents || [];
+
+  const filteredStudents = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(q) ||
+        s.school?.toLowerCase().includes(q) ||
+        s.tutorSubject?.toLowerCase().includes(q) ||
+        (s.subjects || []).some((sub) => sub.toLowerCase().includes(q)),
+    );
+  }, [students, studentSearch]);
+
   const selectedStudent = useMemo(
     () =>
       students.find((student) => student.id === selectedStudentId) ||
@@ -341,9 +356,34 @@ const TutorDashboard = () => {
                 </div>
               </div>
 
-              {students.length ? (
+              {/* Search bar */}
+              {students.length > 0 && (
+                <div className="relative mb-4">
+                  <Search
+                    size={15}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search by name, school or subject…"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-100"
+                  />
+                </div>
+              )}
+
+              {students.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  No students assigned yet.
+                </div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  No students match &ldquo;{studentSearch}&rdquo;.
+                </div>
+              ) : (
                 <div className="space-y-3">
-                  {students.map((student) => {
+                  {filteredStudents.map((student) => {
                     const isActive = selectedStudent?.id === student.id;
                     return (
                       <button
@@ -375,10 +415,6 @@ const TutorDashboard = () => {
                       </button>
                     );
                   })}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  No students assigned yet.
                 </div>
               )}
             </div>

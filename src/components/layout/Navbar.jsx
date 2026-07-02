@@ -1,6 +1,11 @@
-import { Menu, LogOut, Bell, Settings } from "lucide-react";
+import { useState } from "react";
+import { Menu, LogOut, Bell, Settings, KeyRound } from "lucide-react";
+import ResetPasswordModal from "../../features/admin/components/ResetPasswordModal";
 
 const Navbar = ({ setIsOpen }) => {
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -38,6 +43,13 @@ const Navbar = ({ setIsOpen }) => {
             <p className="text-xs text-gray-500">Active</p>
           </div>
           <button
+            onClick={() => setIsResetModalOpen(true)}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 hover:text-indigo-600"
+            title="Reset Password"
+          >
+            <KeyRound size={20} />
+          </button>
+          <button
             onClick={handleLogout}
             className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600 hover:text-red-700"
             title="Logout"
@@ -46,6 +58,13 @@ const Navbar = ({ setIsOpen }) => {
           </button>
         </div>
       </div>
+
+      <ResetPasswordModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        userId={user.id}
+        userName={user.name || "Admin"}
+      />
     </header>
   );
 };
