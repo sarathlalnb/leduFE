@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getSingleStudent, assignTutor, updateAssignedTutor, scheduleClass, updateClassStatus, updateStudent, deleteStudent, updateTestMarks, editClass, deleteClass, deleteAllClasses, bulkEditClasses, getAllTutors } from "../../../services/allAPI";
+import { getSingleStudent, assignTutor, updateAssignedTutor, scheduleClass, updateClassStatus, setClassActualTime, updateStudent, deleteStudent, updateTestMarks, editClass, deleteClass, deleteAllClasses, bulkEditClasses, getAllTutors } from "../../../services/allAPI";
 import { ArrowLeft, Phone, Mail, School, BookOpen, User, Calendar, Award, Plus, Edit, Trash2, UserPlus, BookOpen as BookIcon } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
@@ -31,6 +31,13 @@ const StudentDetails = () => {
   const [bulkEditForm, setBulkEditForm] = useState({ date: "", duration: "", tutorName: "", subject: "" });
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
+
+  // Set Actual Time (admin manual)
+  const [setActualTimeModal, setSetActualTimeModal] = useState(false);
+  const [setActualTimeTarget, setSetActualTimeTarget] = useState(null);
+  const [setActualTimeHours, setSetActualTimeHours] = useState("");
+  const [setActualTimeMins, setSetActualTimeMins] = useState("");
+  const [setActualTimeLoading, setSetActualTimeLoading] = useState(false);
 
   // Form states
   const [tutorForm, setTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
@@ -412,6 +419,30 @@ const StudentDetails = () => {
       alert(err?.response?.data?.message || "Error applying bulk edit");
     } finally {
       setBulkEditLoading(false);
+    }
+  };
+
+  const handleSetActualTime = async () => {
+    const hours = Number(setActualTimeHours) || 0;
+    const mins = Number(setActualTimeMins) || 0;
+    const totalMinutes = hours * 60 + mins;
+    if (totalMinutes <= 0) {
+      alert("Please enter a valid duration (hours and/or minutes)");
+      return;
+    }
+    try {
+      setSetActualTimeLoading(true);
+      await setClassActualTime(setActualTimeTarget._id, { actualMinutes: totalMinutes });
+      setSetActualTimeModal(false);
+      setSetActualTimeTarget(null);
+      setSetActualTimeHours("");
+      setSetActualTimeMins("");
+      fetchStudent();
+    } catch (err) {
+      console.log(err);
+      alert(err?.response?.data?.message || "Error setting actual time");
+    } finally {
+      setSetActualTimeLoading(false);
     }
   };
 
@@ -966,17 +997,49 @@ const StudentDetails = () => {
                       <p className="text-sm text-gray-600 mt-1">
                         {new Date(c.date).toLocaleDateString("en-GB")} {new Date(c.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
                       </p>
+                      {c.status === "done" && c.actualMinutes != null && (
+                        <p className="text-xs font-medium text-emerald-600 mt-0.5">
+                          ⏱ {Math.floor(c.actualMinutes / 60) > 0 ? `${Math.floor(c.actualMinutes / 60)}h ` : ""}{Math.round(c.actualMinutes % 60)}m actual
+                        </p>
+                      )}
                     </div>
-                    <div className="text-right flex-shrink-0 flex items-center gap-2">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${
+                    <div className="text-right flex-shrink-0 flex flex-wrap items-center gap-1.5 justify-end">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
                         c.status === "done" || c.status === "completed"
                           ? "bg-green-100 text-green-700"
                           : c.status === "scheduled"
                             ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-700"
+                            : c.status === "in_progress"
+                              ? "bg-purple-100 text-purple-700"
+                              : c.status === "postponed"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-gray-100 text-gray-700"
                       }`}>
-                        {c.status}
+                        {c.status === "in_progress" ? "In Progress" : c.status}
                       </span>
+                      {c.status !== "cancelled" && (
+                        <button
+                          onClick={() => {
+                            setSetActualTimeTarget(c);
+                            const existing = c.actualMinutes != null ? c.actualMinutes
+                              : (c.classStartTime && c.classEndTime)
+                                ? Math.round((new Date(c.classEndTime) - new Date(c.classStartTime)) / 60000)
+                                : null;
+                            if (existing != null) {
+                              setSetActualTimeHours(String(Math.floor(existing / 60)));
+                              setSetActualTimeMins(String(Math.round(existing % 60)));
+                            } else {
+                              setSetActualTimeHours("");
+                              setSetActualTimeMins("");
+                            }
+                            setSetActualTimeModal(true);
+                          }}
+                          className="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+                          title="Set actual class duration"
+                        >
+                          Set Time
+                        </button>
+                      )}
                       <button
                         onClick={() => openEditClassModal(c)}
                         className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
@@ -1485,7 +1548,85 @@ const StudentDetails = () => {
         </div>
       </Modal>
 
+      {/* Set Actual Time Modal */}
+      <Modal
+        open={setActualTimeModal}
+        title="Set Actual Class Duration"
+        onClose={() => {
+          setSetActualTimeModal(false);
+          setSetActualTimeTarget(null);
+        }}
+      >
+        <div className="p-6 space-y-5">
+          {setActualTimeTarget && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+              <p className="text-sm font-semibold text-indigo-800">{setActualTimeTarget.tutor?.subject}</p>
+              <p className="text-xs text-indigo-600 mt-1">
+                {new Date(setActualTimeTarget.date).toLocaleDateString("en-GB")}{" "}
+                {new Date(setActualTimeTarget.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+              {setActualTimeTarget.classStartTime && (
+                <p className="text-xs text-indigo-500 mt-1">
+                  Started: {new Date(setActualTimeTarget.classStartTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  {setActualTimeTarget.classEndTime && (
+                    <> · Ended: {new Date(setActualTimeTarget.classEndTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="text-sm text-slate-600">
+            Enter the actual time spent in this class. This will mark the class as <strong>Done</strong> and update salary and package progress calculations.
+          </p>
+
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Hours</label>
+              <input
+                type="number"
+                min="0"
+                value={setActualTimeHours}
+                onChange={(e) => setSetActualTimeHours(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Minutes</label>
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={setActualTimeMins}
+                onChange={(e) => setSetActualTimeMins(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
+              />
+            </div>
+          </div>
+
+          {((Number(setActualTimeHours) || 0) * 60 + (Number(setActualTimeMins) || 0)) > 0 && (
+            <p className="text-sm font-medium text-indigo-700 bg-indigo-50 rounded-lg px-3 py-2">
+              Total: {(Number(setActualTimeHours) || 0) > 0 ? `${setActualTimeHours}h ` : ""}{(Number(setActualTimeMins) || 0) > 0 ? `${setActualTimeMins}m` : ""}
+              {" = "}{(Number(setActualTimeHours) || 0) * 60 + (Number(setActualTimeMins) || 0)} minutes
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button onClick={handleSetActualTime} disabled={setActualTimeLoading}>
+              {setActualTimeLoading ? "Saving..." : "Save & Mark Done"}
+            </Button>
+            <Button variant="secondary" onClick={() => {
+              setSetActualTimeModal(false);
+              setSetActualTimeTarget(null);
+            }}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Edit Student Modal */}
+
       <Modal open={editStudentModal} title="Edit Student" onClose={() => setEditStudentModal(false)}>
         <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
           {editStudentError && (

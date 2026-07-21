@@ -83,6 +83,14 @@ export const updateClassStatus = (classId, data) =>
     getAuthHeader()
   );
 
+export const setClassActualTime = (classId, data) =>
+  axiosConfig(
+    "patch",
+    API_ENDPOINTS.ADMIN.SET_CLASS_ACTUAL_TIME(classId),
+    data,
+    getAuthHeader()
+  );
+
 export const editClass = (classId, data) =>
   axiosConfig(
     "patch",

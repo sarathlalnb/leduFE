@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
       `${BaseUrl}/students/${studentId}/schedule-class`,
     UPDATE_CLASS_STATUS: (classId) =>
       `${BaseUrl}/classes/${classId}/status`,
+    SET_CLASS_ACTUAL_TIME: (classId) =>
+      `${BaseUrl}/classes/${classId}/actual-time`,
     EDIT_CLASS: (classId) =>
       `${BaseUrl}/classes/${classId}`,
     DELETE_CLASS: (classId) =>

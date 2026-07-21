@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   getTutorDashboard,
   updateClassStatus,
@@ -17,6 +17,9 @@ import {
   CalendarClock,
   Send,
   Search,
+  Play,
+  Square,
+  Timer,
 } from "lucide-react";
 
 /* ─── tiny modal backdrop wrapper ─── */
@@ -42,40 +45,96 @@ const StatusBadge = ({ status }) => {
     scheduled: "bg-blue-100 text-blue-700",
     cancelled: "bg-rose-100 text-rose-700",
     postponed: "bg-amber-100 text-amber-700",
+    in_progress: "bg-purple-100 text-purple-700",
   };
+  const label = status === "in_progress" ? "In Progress" : status;
   return (
     <span
       className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${map[status] ?? "bg-slate-100 text-slate-600"}`}
     >
-      {status}
+      {label}
     </span>
   );
 };
 
-/* ─── class action buttons shared across both panels ─── */
+/* ─── Live running timer ─── */
+const LiveTimer = ({ startTime }) => {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = startTime ? new Date(startTime).getTime() : Date.now();
+    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startTime]);
+
+  const hrs = Math.floor(elapsed / 3600);
+  const mins = Math.floor((elapsed % 3600) / 60);
+  const secs = elapsed % 60;
+  const fmt = (n) => String(n).padStart(2, "0");
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-xl bg-purple-50 px-3 py-1.5 text-sm font-mono font-semibold text-purple-700 border border-purple-200">
+      <Timer size={14} className="animate-pulse text-purple-500" />
+      {hrs > 0 && <span>{fmt(hrs)}:</span>}
+      <span>{fmt(mins)}:{fmt(secs)}</span>
+    </div>
+  );
+};
+
+/* ─── Format actual minutes for display ─── */
+const formatMinutes = (mins) => {
+  if (mins == null) return null;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+};
+
+/* ─── class action buttons ─── */
 const ClassActions = ({
   cls,
   updatingId,
-  onMarkDone,
+  onStartClass,
+  onEndClass,
   onCancelClick,
   onPostponeClick,
 }) => {
   if (cls.status === "done" || cls.status === "cancelled") return null;
 
+  const isUpdating = updatingId === cls._id;
+
+  if (cls.status === "in_progress") {
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <LiveTimer startTime={cls.classStartTime} />
+        <button
+          onClick={() => onEndClass(cls._id)}
+          disabled={isUpdating}
+          className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-700 disabled:opacity-60"
+        >
+          <Square size={12} />
+          {isUpdating ? "Ending…" : "End Class"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {cls.status !== "done" && (
-        <button
-          onClick={() => onMarkDone(cls._id)}
-          disabled={updatingId === cls._id}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
-        >
-          {updatingId === cls._id ? "Updating…" : "Mark done"}
-        </button>
-      )}
+      <button
+        onClick={() => onStartClass(cls._id)}
+        disabled={isUpdating}
+        className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+      >
+        <Play size={12} />
+        {isUpdating ? "Starting…" : "Start Class"}
+      </button>
       <button
         onClick={() => onCancelClick(cls)}
-        disabled={updatingId === cls._id}
+        disabled={isUpdating}
         className="rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-600 disabled:opacity-60"
       >
         Cancel
@@ -83,7 +142,7 @@ const ClassActions = ({
       {cls.status === "scheduled" && (
         <button
           onClick={() => onPostponeClick(cls)}
-          disabled={updatingId === cls._id}
+          disabled={isUpdating}
           className="flex items-center gap-1 rounded-lg border border-indigo-400 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
         >
           <CalendarClock size={12} />
@@ -109,15 +168,15 @@ const TutorDashboard = () => {
   const [studentSearch, setStudentSearch] = useState("");
 
   /* ── cancel confirmation state ── */
-  const [cancelTarget, setCancelTarget] = useState(null); // class object
+  const [cancelTarget, setCancelTarget] = useState(null);
 
   /* ── postpone request modal state ── */
-  const [postponeTarget, setPostponeTarget] = useState(null); // class object
+  const [postponeTarget, setPostponeTarget] = useState(null);
   const [postponeForm, setPostponeForm] = useState({ date: "", reason: "" });
   const [postponeLoading, setPostponeLoading] = useState(false);
   const [postponeMsg, setPostponeMsg] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getTutorDashboard();
@@ -140,20 +199,33 @@ const TutorDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  /* ── status change ── */
-  const handleStatusChange = async (classId, status) => {
+  /* ── Start Class ── */
+  const handleStartClass = async (classId) => {
     try {
       setUpdatingId(classId);
-      await updateClassStatus(classId, { status });
+      await updateClassStatus(classId, { status: "in_progress" });
       await fetchData();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to update class status");
+      alert(err?.response?.data?.message || "Failed to start class");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  /* ── End Class ── */
+  const handleEndClass = async (classId) => {
+    try {
+      setUpdatingId(classId);
+      await updateClassStatus(classId, { status: "done" });
+      await fetchData();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to end class");
     } finally {
       setUpdatingId(null);
     }
@@ -164,8 +236,16 @@ const TutorDashboard = () => {
 
   const handleCancelConfirm = async () => {
     if (!cancelTarget) return;
-    await handleStatusChange(cancelTarget._id, "cancelled");
-    setCancelTarget(null);
+    try {
+      setUpdatingId(cancelTarget._id);
+      await updateClassStatus(cancelTarget._id, { status: "cancelled" });
+      await fetchData();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to cancel class");
+    } finally {
+      setUpdatingId(null);
+      setCancelTarget(null);
+    }
   };
 
   /* ── postpone request flow ── */
@@ -239,6 +319,12 @@ const TutorDashboard = () => {
     return d.toISOString().split("T")[0];
   })();
 
+  /* helper: format hours (may be fractional) */
+  const fmtHours = (h) => {
+    const rounded = Math.round(h * 10) / 10;
+    return rounded % 1 === 0 ? rounded : rounded.toFixed(1);
+  };
+
   return (
     <div className="space-y-6">
       {/* ─── Hero header ─── */}
@@ -256,8 +342,8 @@ const TutorDashboard = () => {
               Ledu Tutor Workspace
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-purple-100 sm:text-base">
-              Review all students assigned to you, inspect their classes, and
-              keep upcoming lessons in sync.
+              Start and end each class to record actual time. Your salary is
+              calculated from real teaching hours.
             </p>
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
@@ -288,15 +374,15 @@ const TutorDashboard = () => {
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-slate-500">Hours</p>
+              <p className="text-sm text-slate-500">Total Hours</p>
               <p className="mt-2 text-2xl font-semibold text-blue-600">
-                {stats.totalHours || 0}
+                {fmtHours(stats.totalHours || 0)}
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-sm text-slate-500">Revenue</p>
               <p className="mt-2 text-2xl font-semibold text-amber-600">
-                ₹{stats.totalRevenue || 0}
+                ₹{Math.round(stats.totalRevenue || 0)}
               </p>
             </div>
           </div>
@@ -323,7 +409,7 @@ const TutorDashboard = () => {
               <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
                 <p className="text-sm text-purple-200">Hours This Month</p>
                 <p className="mt-2 text-3xl font-bold text-white">
-                  {currentMonthStats.totalHours || 0}
+                  {fmtHours(currentMonthStats.totalHours || 0)}
                   <span className="ml-1 text-base font-normal text-purple-200">
                     hr
                   </span>
@@ -332,7 +418,7 @@ const TutorDashboard = () => {
               <div className="rounded-2xl bg-white/15 p-4 backdrop-blur ring-1 ring-white/30">
                 <p className="text-sm text-purple-200">Salary This Month</p>
                 <p className="mt-2 text-3xl font-bold text-white">
-                  ₹{currentMonthStats.totalSalary || 0}
+                  ₹{Math.round(currentMonthStats.totalSalary || 0)}
                 </p>
               </div>
             </div>
@@ -385,6 +471,9 @@ const TutorDashboard = () => {
                 <div className="space-y-3">
                   {filteredStudents.map((student) => {
                     const isActive = selectedStudent?.id === student.id;
+                    const hasLive = student.assignedClasses?.some(
+                      (c) => c.status === "in_progress"
+                    );
                     return (
                       <button
                         key={student.id}
@@ -393,8 +482,11 @@ const TutorDashboard = () => {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900">
+                            <p className="font-semibold text-slate-900 flex items-center gap-1.5">
                               {student.name}
+                              {hasLive && (
+                                <span className="inline-flex h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                              )}
                             </p>
                             <p className="mt-1 text-sm text-slate-500">
                               {student.school || "School not added"}
@@ -468,7 +560,7 @@ const TutorDashboard = () => {
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-semibold text-purple-800">📦 Package Progress</p>
                           <span className="text-xs font-medium text-purple-600">
-                            {selectedStudent.totalHours || 0}h / {selectedStudent.packageHours}h
+                            {fmtHours(selectedStudent.totalHours || 0)}h / {selectedStudent.packageHours}h
                           </span>
                         </div>
                         <div className="w-full bg-purple-100 rounded-full h-2.5">
@@ -493,7 +585,7 @@ const TutorDashboard = () => {
 
                   {/* Classes panels */}
                   <div className="grid gap-6 lg:grid-cols-2">
-                    {/* All assigned classes — with status controls */}
+                    {/* All assigned classes */}
                     <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-4 flex items-center gap-2">
                         <BookOpen size={18} className="text-purple-600" />
@@ -506,7 +598,7 @@ const TutorDashboard = () => {
                           {selectedStudent.assignedClasses.map((cls) => (
                             <div
                               key={cls._id}
-                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                              className={`rounded-2xl border p-4 transition-all ${cls.status === "in_progress" ? "border-purple-300 bg-purple-50" : "border-slate-200 bg-slate-50"}`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
@@ -522,17 +614,23 @@ const TutorDashboard = () => {
                                 </div>
                                 <StatusBadge status={cls.status} />
                               </div>
-                              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                                <Clock3 size={13} />
-                                <span>{cls.duration || 1} hr</span>
+                              <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock3 size={13} />
+                                  {cls.duration || 1} hr scheduled
+                                </span>
+                                {cls.status === "done" && cls.actualMinutes != null && (
+                                  <span className="flex items-center gap-1 font-medium text-emerald-600">
+                                    <CheckCircle2 size={13} />
+                                    {formatMinutes(cls.actualMinutes)} actual
+                                  </span>
+                                )}
                               </div>
-                              {/* Action buttons for all statuses except done/cancelled */}
                               <ClassActions
                                 cls={cls}
                                 updatingId={updatingId}
-                                onMarkDone={(id) =>
-                                  handleStatusChange(id, "done")
-                                }
+                                onStartClass={handleStartClass}
+                                onEndClass={handleEndClass}
                                 onCancelClick={handleCancelClick}
                                 onPostponeClick={handlePostponeClick}
                               />
@@ -546,7 +644,7 @@ const TutorDashboard = () => {
                       )}
                     </div>
 
-                    {/* Upcoming classes — with status controls */}
+                    {/* Upcoming classes */}
                     <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-4 flex items-center gap-2">
                         <CalendarDays size={18} className="text-indigo-600" />
@@ -559,7 +657,7 @@ const TutorDashboard = () => {
                           {selectedStudent.upcomingClasses.map((cls) => (
                             <div
                               key={cls._id}
-                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                              className={`rounded-2xl border p-4 transition-all ${cls.status === "in_progress" ? "border-purple-300 bg-purple-50" : "border-slate-200 bg-slate-50"}`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
@@ -575,16 +673,15 @@ const TutorDashboard = () => {
                                 </div>
                                 <StatusBadge status={cls.status} />
                               </div>
-                              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                              <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
                                 <Clock3 size={13} />
-                                <span>{cls.duration || 1} hr</span>
+                                <span>{cls.duration || 1} hr scheduled</span>
                               </div>
                               <ClassActions
                                 cls={cls}
                                 updatingId={updatingId}
-                                onMarkDone={(id) =>
-                                  handleStatusChange(id, "done")
-                                }
+                                onStartClass={handleStartClass}
+                                onEndClass={handleEndClass}
                                 onCancelClick={handleCancelClick}
                                 onPostponeClick={handlePostponeClick}
                               />
@@ -621,27 +718,38 @@ const TutorDashboard = () => {
             </div>
             {data.recentClasses?.length ? (
               <div className="grid gap-3 lg:grid-cols-2">
-                {data.recentClasses.map((cls) => (
-                  <div
-                    key={cls._id}
-                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                  >
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {cls.tutor?.subject || "Class"}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {new Date(cls.date).toLocaleString()}
-                      </p>
+                {data.recentClasses.map((cls) => {
+                  const hrs =
+                    cls.actualMinutes != null
+                      ? cls.actualMinutes / 60
+                      : cls.duration || 1;
+                  return (
+                    <div
+                      key={cls._id}
+                      className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {cls.tutor?.subject || "Class"}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          {new Date(cls.date).toLocaleString()}
+                        </p>
+                        {cls.actualMinutes != null && (
+                          <p className="text-xs font-medium text-purple-600 mt-0.5">
+                            ⏱ {formatMinutes(cls.actualMinutes)} actual
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right text-sm">
+                        <p className="text-slate-700">{fmtHours(hrs)} hrs</p>
+                        <p className="font-medium text-amber-600">
+                          ₹{Math.round((cls.tutorRate || 0) * hrs)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right text-sm">
-                      <p className="text-slate-700">{cls.duration || 1} hrs</p>
-                      <p className="font-medium text-amber-600">
-                        ₹{(cls.tutorRate || 0) * (cls.duration || 1)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-slate-500">No completed classes yet.</p>

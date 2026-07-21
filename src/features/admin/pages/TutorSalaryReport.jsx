@@ -261,7 +261,8 @@ const TutorSalaryReport = () => {
                       />
                       <SummaryCard
                         label={`${MONTH_NAMES[month - 1]} Hours`}
-                        value={`${monthlyTotals.totalHours || 0} hr`}
+                        value={`${Math.round((monthlyTotals.totalHours || 0) * 10) / 10} hr`}
+                        subLabel={monthlyTotals.totalMinutes ? `${monthlyTotals.totalMinutes} min` : undefined}
                         icon={<Clock size={18} className="text-blue-600" />}
                         color="blue"
                       />
@@ -274,7 +275,7 @@ const TutorSalaryReport = () => {
                       />
                       <SummaryCard
                         label="All-Time Salary"
-                        value={`₹${allTimeTotals.totalAmount || 0}`}
+                        value={`₹${Math.round(allTimeTotals.totalAmount || 0)}`}
                         icon={<TrendingUp size={18} className="text-amber-600" />}
                         color="amber"
                       />
@@ -295,7 +296,12 @@ const TutorSalaryReport = () => {
                           <Clock size={15} className="text-indigo-500" />
                           All-Time Hours
                         </div>
-                        <p className="mt-2 text-2xl font-semibold text-slate-900">{allTimeTotals.totalHours || 0} <span className="text-base font-normal text-slate-500">hrs</span></p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-900">
+                          {Math.round((allTimeTotals.totalHours || 0) * 10) / 10} <span className="text-base font-normal text-slate-500">hrs</span>
+                        </p>
+                        {allTimeTotals.totalMinutes > 0 && (
+                          <p className="mt-0.5 text-xs text-purple-600 font-medium">{allTimeTotals.totalMinutes} min total</p>
+                        )}
                         <p className="mt-0.5 text-xs text-slate-400">Total teaching hours earned</p>
                       </div>
                     </div>
@@ -320,7 +326,7 @@ const TutorSalaryReport = () => {
                             <tr className="border-b border-slate-100">
                               <th className="pb-3 text-left font-medium text-slate-500">Day</th>
                               <th className="pb-3 text-center font-medium text-slate-500">Classes</th>
-                              <th className="pb-3 text-center font-medium text-slate-500">Hours</th>
+                              <th className="pb-3 text-center font-medium text-slate-500">Time</th>
                               <th className="pb-3 text-right font-medium text-slate-500">Amount (₹)</th>
                             </tr>
                           </thead>
@@ -354,9 +360,21 @@ const TutorSalaryReport = () => {
                                       <span className="text-slate-300">—</span>
                                     )}
                                   </td>
-                                  <td className="py-2.5 text-center text-slate-600">
-                                    {hasClass ? `${row.hours} hr` : <span className="text-slate-300">—</span>}
-                                  </td>
+                                   <td className="py-2.5 text-center text-slate-600">
+                                     {hasClass ? (
+                                       <span>
+                                         {row.totalMinutes != null ? (
+                                           <>
+                                             {Math.floor(row.totalMinutes / 60) > 0 && <span className="font-medium">{Math.floor(row.totalMinutes / 60)}h </span>}
+                                             {Math.round(row.totalMinutes % 60) > 0 && <span className="font-medium">{Math.round(row.totalMinutes % 60)}m</span>}
+                                             {row.totalMinutes === 0 && <span className="text-slate-400">0m</span>}
+                                           </>
+                                         ) : (
+                                           `${Math.round((row.hours || 0) * 10) / 10} hr`
+                                         )}
+                                       </span>
+                                     ) : <span className="text-slate-300">—</span>}
+                                   </td>
                                   <td className="py-2.5 text-right font-medium">
                                     {hasClass ? (
                                       <span className="text-indigo-700">₹{row.amount}</span>
@@ -375,12 +393,15 @@ const TutorSalaryReport = () => {
                               <td className="py-3 text-center text-sm font-semibold text-slate-700">
                                 {monthlyTotals.totalClasses || 0}
                               </td>
-                              <td className="py-3 text-center text-sm font-semibold text-slate-700">
-                                {monthlyTotals.totalHours || 0} hr
-                              </td>
-                              <td className="py-3 text-right text-sm font-bold text-emerald-700">
-                                ₹{monthlyTotals.totalAmount || 0}
-                              </td>
+                               <td className="py-3 text-center text-sm font-semibold text-slate-700">
+                                 {Math.round((monthlyTotals.totalHours || 0) * 10) / 10} hr
+                                 {monthlyTotals.totalMinutes > 0 && (
+                                   <span className="ml-1 text-xs font-normal text-purple-600">({monthlyTotals.totalMinutes} min)</span>
+                                 )}
+                               </td>
+                               <td className="py-3 text-right text-sm font-bold text-emerald-700">
+                                 ₹{Math.round(monthlyTotals.totalAmount || 0)}
+                               </td>
                             </tr>
                           </tfoot>
                         </table>
@@ -397,7 +418,7 @@ const TutorSalaryReport = () => {
   );
 };
 
-const SummaryCard = ({ label, value, icon, color, highlight }) => {
+const SummaryCard = ({ label, value, subLabel, icon, color, highlight }) => {
   const colorMap = {
     purple: "bg-purple-50 border-purple-100",
     blue: "bg-blue-50 border-blue-100",
@@ -415,6 +436,7 @@ const SummaryCard = ({ label, value, icon, color, highlight }) => {
         <span>{label}</span>
       </div>
       <p className={`mt-2 text-2xl font-bold ${highlight ? "" : "text-slate-900"}`}>{value}</p>
+      {subLabel && <p className="mt-0.5 text-xs font-medium text-purple-600">{subLabel}</p>}
     </div>
   );
 };
