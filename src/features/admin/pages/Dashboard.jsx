@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import StatsCard from "../components/StatsCard";
 import { getAdminDashboard } from "../../../services/allAPI";
+import { formatDate, formatTime } from "../../../utils/formatDate";
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
@@ -126,8 +127,8 @@ const Dashboard = () => {
                           <p className="text-sm text-gray-600 truncate">{cls.tutor?.subject || "Subject"}</p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-medium text-gray-900">{new Date(cls.date).toLocaleDateString()}</p>
-                          <p className="text-xs text-gray-500">{new Date(cls.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="text-sm font-medium text-gray-900">{formatDate(cls.date)}</p>
+                          <p className="text-xs text-gray-500">{formatTime(cls.date)}</p>
                         </div>
                       </div>
                     ))}

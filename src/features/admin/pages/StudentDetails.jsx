@@ -7,6 +7,7 @@ import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import ScheduleClassCalendar from "../components/ScheduleClassCalendar";
 import AddTestModal from "../components/AddTestModal";
+import { formatDate, formatTime } from "../../../utils/formatDate";
 
 const StudentDetails = () => {
   const { id } = useParams();
@@ -40,8 +41,8 @@ const StudentDetails = () => {
   const [setActualTimeLoading, setSetActualTimeLoading] = useState(false);
 
   // Form states
-  const [tutorForm, setTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
-  const [editTutorForm, setEditTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+  const [tutorForm, setTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", allocatedHours: "", manualSubject: "" });
+  const [editTutorForm, setEditTutorForm] = useState({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", allocatedHours: "", manualSubject: "" });
   const [assignTutorManualSubject, setAssignTutorManualSubject] = useState(false);
   const [editTutorManualSubject, setEditTutorManualSubject] = useState(false);
   const [addClassManualSubject, setAddClassManualSubject] = useState(false);
@@ -158,9 +159,10 @@ const StudentDetails = () => {
         subject: resolvedSubject,
         tutorHourlyRate: Number(tutorForm.tutorHourlyRate) || 0,
         studentHourlyRate: Number(tutorForm.studentHourlyRate) || 0,
+        allocatedHours: Number(tutorForm.allocatedHours) || 0,
       });
       setAssignTutorModal(false);
-      setTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+      setTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", allocatedHours: "", manualSubject: "" });
       setAssignTutorManualSubject(false);
       fetchStudent();
     } catch (err) {
@@ -197,11 +199,12 @@ const StudentDetails = () => {
         subject: resolvedSubject,
         tutorHourlyRate: Number(editTutorForm.tutorHourlyRate) || 0,
         studentHourlyRate: Number(editTutorForm.studentHourlyRate) || 0,
+        allocatedHours: Number(editTutorForm.allocatedHours) || 0,
       });
 
       setEditTutorModal(false);
       setEditingTutor(null);
-      setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", manualSubject: "" });
+      setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", allocatedHours: "", manualSubject: "" });
       setEditTutorManualSubject(false);
       fetchStudent();
     } catch (err) {
@@ -253,7 +256,12 @@ const StudentDetails = () => {
 
   const handleUpdateClassStatus = async () => {
     try {
-      await updateClassStatus(selectedClass._id, updateClassStatusForm);
+      const payload = { ...updateClassStatusForm };
+      // Convert datetime-local string to UTC ISO so the server stores the correct local time
+      if (payload.newDate) {
+        payload.newDate = new Date(payload.newDate).toISOString();
+      }
+      await updateClassStatus(selectedClass._id, payload);
       setUpdateClassStatusModal(false);
       setUpdateClassStatusForm({ status: "", newDate: "" });
       setSelectedClass(null);
@@ -491,6 +499,7 @@ const StudentDetails = () => {
       subject: tutor.subject || "",
       tutorHourlyRate: tutor.tutorHourlyRate ?? tutor.hourlyRate ?? "",
       studentHourlyRate: tutor.studentHourlyRate ?? "",
+      allocatedHours: tutor.allocatedHours ?? "",
       manualSubject: "",
     });
     setEditTutorModal(true);
@@ -781,6 +790,11 @@ const StudentDetails = () => {
                           <p className="text-xs text-gray-500 mt-1">
                             Tutor ₹{Number(t.tutorHourlyRate ?? t.hourlyRate ?? 0)} / hr • Student ₹{Number(t.studentHourlyRate ?? 0)} / hr
                           </p>
+                          {(t.allocatedHours > 0) && (
+                            <p className="text-xs font-medium text-purple-600 mt-1">
+                              📦 Allocated: {t.allocatedHours} hrs
+                            </p>
+                          )}
                         </div>
                         <button
                           onClick={() => openEditAssignedTutorModal(t)}
@@ -995,7 +1009,7 @@ const StudentDetails = () => {
                       <p className="font-semibold text-gray-900">{c.tutor?.subject || "Subject"}</p>
                       <p className="text-xs text-gray-500">{c.tutor?.name || "—"}</p>
                       <p className="text-sm text-gray-600 mt-1">
-                        {new Date(c.date).toLocaleDateString("en-GB")} {new Date(c.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                        {formatDate(c.date)} {formatTime(c.date)}
                       </p>
                       {c.status === "done" && c.actualMinutes != null && (
                         <p className="text-xs font-medium text-emerald-600 mt-0.5">
@@ -1156,6 +1170,13 @@ const StudentDetails = () => {
             onChange={(e) => setTutorForm({ ...tutorForm, studentHourlyRate: e.target.value })}
             placeholder="Enter student hourly rate"
           />
+          <Input
+            label="Allocated Hours (from student's package)"
+            type="number"
+            value={tutorForm.allocatedHours}
+            onChange={(e) => setTutorForm({ ...tutorForm, allocatedHours: e.target.value })}
+            placeholder="e.g. 8 (out of total 40 package hours)"
+          />
           <div className="flex gap-3 pt-4">
             <Button onClick={handleAssignTutor}>Assign Tutor</Button>
             <Button variant="secondary" onClick={() => setAssignTutorModal(false)}>Cancel</Button>
@@ -1254,12 +1275,19 @@ const StudentDetails = () => {
             onChange={(e) => setEditTutorForm({ ...editTutorForm, studentHourlyRate: e.target.value })}
             placeholder="Enter student hourly rate"
           />
+          <Input
+            label="Allocated Hours (from student's package)"
+            type="number"
+            value={editTutorForm.allocatedHours}
+            onChange={(e) => setEditTutorForm({ ...editTutorForm, allocatedHours: e.target.value })}
+            placeholder="e.g. 8 (out of total 40 package hours)"
+          />
           <div className="flex gap-3 pt-4">
             <Button onClick={handleEditAssignedTutor}>Save Changes</Button>
             <Button variant="secondary" onClick={() => {
               setEditTutorModal(false);
               setEditingTutor(null);
-              setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "" });
+              setEditTutorForm({ name: "", subject: "", tutorHourlyRate: "", studentHourlyRate: "", allocatedHours: "" });
             }}>Cancel</Button>
           </div>
         </div>
@@ -1507,7 +1535,7 @@ const StudentDetails = () => {
                   <strong>Subject:</strong> {selectedClass.tutor?.subject}
                 </p>
                 <p className="text-sm text-purple-800">
-                  <strong>Date:</strong> {new Date(selectedClass.date).toLocaleDateString("en-GB")} {new Date(selectedClass.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  <strong>Date:</strong> {formatDate(selectedClass.date)} {formatTime(selectedClass.date)}
                 </p>
               </div>
 
@@ -1562,14 +1590,14 @@ const StudentDetails = () => {
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
               <p className="text-sm font-semibold text-indigo-800">{setActualTimeTarget.tutor?.subject}</p>
               <p className="text-xs text-indigo-600 mt-1">
-                {new Date(setActualTimeTarget.date).toLocaleDateString("en-GB")}{" "}
-                {new Date(setActualTimeTarget.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                {formatDate(setActualTimeTarget.date)}{" "}
+                {formatTime(setActualTimeTarget.date)}
               </p>
               {setActualTimeTarget.classStartTime && (
                 <p className="text-xs text-indigo-500 mt-1">
-                  Started: {new Date(setActualTimeTarget.classStartTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  Started: {formatTime(setActualTimeTarget.classStartTime)}
                   {setActualTimeTarget.classEndTime && (
-                    <> · Ended: {new Date(setActualTimeTarget.classEndTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</>
+                    <> · Ended: {formatTime(setActualTimeTarget.classEndTime)}</>
                   )}
                 </p>
               )}

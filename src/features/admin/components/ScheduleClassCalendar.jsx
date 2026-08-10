@@ -128,12 +128,20 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [], packageHou
       return dateOnly >= todayStart;
     });
 
-    // Format dates with time — use local date parts to avoid UTC date-shift
+    // Build proper Date objects in local time then convert to ISO (UTC).
+    // This ensures a time like "16:30" selected by the admin in IST is stored
+    // as UTC 11:00, not as UTC 16:30 (which would display as 10:00 PM IST).
+    const [hh, min] = time.split(":").map(Number);
     const formattedDates = dates.map(d => {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}T${time}:00`;
+      const localDate = new Date(
+        d.getFullYear(),
+        d.getMonth(),
+        d.getDate(),
+        hh,
+        min,
+        0
+      );
+      return localDate.toISOString(); // correct UTC representation of local time
     });
     
     const packageData = {
@@ -519,8 +527,9 @@ const ScheduleClassCalendar = ({ onDatesSelected, selectedDates = [], packageHou
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {selectedDates.map((datetime, idx) => {
               const date = new Date(datetime);
-              const dateStr = date.toLocaleDateString();
-              const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              // Use local timezone for preview — matches what will be stored/displayed
+              const dateStr = date.toLocaleDateString("en-GB");
+              const timeStr = date.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
               return (
                 <p key={idx} className="text-xs text-blue-700">
                   {dateStr} at {timeStr}

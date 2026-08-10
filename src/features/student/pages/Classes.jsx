@@ -73,7 +73,8 @@ const Classes = () => {
     const date = new Date(dateString);
     return {
       date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "UTC" }),
+      // No timeZone: "UTC" — use browser local timezone so IST times display correctly
+      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
       day: date.toLocaleDateString("en-US", { weekday: "long" }),
     };
   };

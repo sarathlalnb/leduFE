@@ -4,6 +4,8 @@ import {
   updateClassStatus,
   createTutorRequest,
 } from "../../../services/allAPI";
+import { formatDate, formatDateTime } from "../../../utils/formatDate";
+
 import {
   CalendarDays,
   Clock3,
@@ -267,7 +269,8 @@ const TutorDashboard = () => {
         classId: postponeTarget._id,
         type: "postpone",
         reason: postponeForm.reason,
-        postponedDate: postponeForm.date,
+        // Convert local datetime-local string to UTC ISO for correct server storage
+        postponedDate: new Date(postponeForm.date).toISOString(),
       });
       setPostponeMsg({ type: "success", text: "Request submitted! Admin will review it shortly." });
       setTimeout(() => {
@@ -554,28 +557,28 @@ const TutorDashboard = () => {
                       )}
                     </div>
 
-                    {/* Package Hours Progress */}
-                    {selectedStudent.packageHours > 0 && (
+                    {/* Per-Tutor Allocated Hours Progress */}
+                    {selectedStudent.allocatedHours > 0 && (
                       <div className="mt-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-semibold text-purple-800">📦 Package Progress</p>
+                          <p className="text-sm font-semibold text-purple-800">📦 Your Allocated Hours</p>
                           <span className="text-xs font-medium text-purple-600">
-                            {fmtHours(selectedStudent.totalHours || 0)}h / {selectedStudent.packageHours}h
+                            {fmtHours(selectedStudent.completedHours || 0)}h done / {selectedStudent.allocatedHours}h allocated
                           </span>
                         </div>
                         <div className="w-full bg-purple-100 rounded-full h-2.5">
                           <div
                             className="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-purple-500 transition-all"
-                            style={{ width: `${Math.min(100, ((selectedStudent.totalHours || 0) / selectedStudent.packageHours) * 100)}%` }}
+                            style={{ width: `${Math.min(100, ((selectedStudent.completedHours || 0) / selectedStudent.allocatedHours) * 100)}%` }}
                           />
                         </div>
                         <div className="flex justify-between mt-1">
                           <p className="text-xs text-purple-600">
-                            {Math.min(100, Math.round(((selectedStudent.totalHours || 0) / selectedStudent.packageHours) * 100))}% complete
+                            {Math.min(100, Math.round(((selectedStudent.completedHours || 0) / selectedStudent.allocatedHours) * 100))}% complete
                           </p>
                           {selectedStudent.packageEndDate && (
                             <p className="text-xs text-purple-500">
-                              Ends {new Date(selectedStudent.packageEndDate).toLocaleDateString()}
+                              Ends {formatDate(selectedStudent.packageEndDate)}
                             </p>
                           )}
                         </div>
@@ -609,7 +612,7 @@ const TutorDashboard = () => {
                                     {cls.tutor?.subject || "Class"}
                                   </p>
                                   <p className="mt-1 text-xs text-slate-500">
-                                    {new Date(cls.date).toLocaleString()}
+                                    {formatDateTime(cls.date)}
                                   </p>
                                 </div>
                                 <StatusBadge status={cls.status} />
@@ -668,7 +671,7 @@ const TutorDashboard = () => {
                                     {cls.tutor?.subject || "Class"}
                                   </p>
                                   <p className="mt-1 text-xs text-slate-500">
-                                    {new Date(cls.date).toLocaleString()}
+                                    {formatDateTime(cls.date)}
                                   </p>
                                 </div>
                                 <StatusBadge status={cls.status} />
@@ -733,7 +736,7 @@ const TutorDashboard = () => {
                           {cls.tutor?.subject || "Class"}
                         </p>
                         <p className="text-sm text-slate-500">
-                          {new Date(cls.date).toLocaleString()}
+                          {formatDateTime(cls.date)}
                         </p>
                         {cls.actualMinutes != null && (
                           <p className="text-xs font-medium text-purple-600 mt-0.5">

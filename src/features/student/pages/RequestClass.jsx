@@ -37,7 +37,7 @@ const RequestClass = () => {
         classId: selectedClass._id,
         type: requestType,
         reason: reason || `Requesting to ${requestType === "postpone" ? "postpone" : "cancel"} class`,
-        ...(requestType === "postpone" ? { postponedDate } : {}),
+        ...(requestType === "postpone" ? { postponedDate: new Date(postponedDate).toISOString() } : {}),
       };
 
       await createRequest(requestData);
@@ -57,9 +57,10 @@ const RequestClass = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }),
-      day: date.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
+      // No timeZone: "UTC" — use browser local timezone so IST times display correctly
+      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      day: date.toLocaleDateString("en-US", { weekday: "long" }),
     };
   };
 
